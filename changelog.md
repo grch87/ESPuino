@@ -1,3 +1,16 @@
+## New (modules)
+* 22.04.2021: Introduced refactoring-branch
+* xx.05.2021: Fixing/stabilizing code
+* 08.06.2021: Added global support for PA/HP-enable
+* 15.06.2021: Added interrupt-handling to PCA9555
+* 22.06.2021: Changed ESP32's partition-layout in order to provider bigger NVS-storage
+* 30.06.2021: Added directive `CACHED_PLAYLIST_ENABLE` for faster playlist-generation
+* 08.07.2021: Added support to monitor WiFi's RSSI
+* 09.07.2021: Making branch `refactoring` the the master
+* 09.07.2021: Making master the new branch `old` (not maintained any longer!)
+* 13.07.2021: Adding OTA-support via webGUI
+
+## Old (monolithic main.cpp)
 * 11.07.2020: Added support for reversed Neopixel addressing.
 * 09.10.2020: mqttUser / mqttPassword can now be configured via webgui.
 * 16.10.2020: Added English as supported lanuage.

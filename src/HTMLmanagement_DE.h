@@ -136,6 +136,8 @@ static const char management_HTML[] PROGMEM = "<!DOCTYPE html>\
     </a>\
     <a class=\"reboot float-right nav-link\" href=\"/restart\"><i class=\"fas fa-redo\"></i> Neustart</a>\
     <a class=\"reboot float-right nav-link\" href=\"/shutdown\"><i class=\"fas fa-power-off\"></i> Ausschalten</a>\
+    <a class=\"reboot float-right nav-link\" href=\"/log\"><i class=\"fas fa-book\"></i> Log</a>\
+    <a class=\"reboot float-right nav-link\" href=\"/info\"><i class=\"fas fa-info\"></i> Infos</a>\
     </div>\
 </nav>\
 <br/>\
@@ -460,16 +462,39 @@ static const char management_HTML[] PROGMEM = "<!DOCTYPE html>\
         <br />\
     </div>\
     <div class=\"tab-pane fade\" id=\"nav-tools\" role=\"tabpanel\" aria-labelledby=\"nav-tools-tab\">\
+        <div class=\"container\" id=\"eraseNvs\">\
+            <legend>NVS RFID-Zuweisungen löschen</legend>\
+            <form action=\"/rfidnvserase\" enctype=\"multipart/form-data\" method=\"GET\">\
+                <div class=\"form-group\">\
+                    <p>Über den Importer werden lediglich neue Einträge importiert, jedoch keine bestehenden Einträge aktiv gelöscht. Im Falle einer doppelten Zuweisung wird ein Eintrag allenfalls überschrieben. Mit dieser Funktion können alle bestehenden NVS-RFID-Zuweisungen gelöscht werden, so dass der ESPuino im Anschluss keinerlei Karten mehr kennt. Wird im Anschluss der Importer gestartet, befinden sich im Speicher des ESPuino anschließend exakt nur solche Zuweisungen, die Teil der Backup-Datei sind. Weitere Infos gibt es <a href=\"https://forum.espuino.de/t/die-backupfunktion-des-espuino/508\" target=\"_blank\">hier</a>.</p>\
+                </div>\
+                <button type=\"submit\" class=\"btn btn-primary\">Zuweisungen löschen</button>\
+            </form>\
+        </div>\
+        <br />\
+        <br />\
         <div class=\"container\" id=\"importNvs\">\
-            <legend>NVS-Importer</legend>\
+            <legend>NVS RFID-Importer</legend>\
             <form action=\"/upload\" enctype=\"multipart/form-data\" method=\"POST\">\
                 <div class=\"form-group\">\
-                    <label for=\"nvsUpload\">Hier kann eine Backup-Datei importiert werden.</label>\
+                    <label for=\"nvsUpload\">Hier kann eine Backup-Datei hochgeladen werden, um NVS-RFID-Zuweisungen zu importieren.</label>\
                     <input type=\"file\" class=\"form-control-file\" id=\"nvsUpload\" name=\"nvsUpload\" accept=\".txt\">\
                 </div>\
                 <button type=\"submit\" class=\"btn btn-primary\">Absenden</button>\
             </form>\
         </div>\
+    </div>\
+    <br />\
+    <br />\
+    <div class=\"container\" id=\"httpUpdate\">\
+        <legend>Firmware-Update</legend>\
+        <form action=\"/update\" enctype=\"multipart/form-data\" method=\"POST\">\
+            <div class=\"form-group\">\
+                <label for=\"firmwareUpload\">Hier kann ein Firmware-Update durchgeführt werden.</label>\
+                <input type=\"file\" class=\"form-control-file\" id=\"firmwareUpload\" name=\"firmwareUpload\" accept=\".bin\">\
+            </div>\
+            <button type=\"submit\" class=\"btn btn-primary\">Absenden</button>\
+        </form>\
     </div>\
     <div class=\"tab-pane fade\" id=\"nav-forum\" role=\"tabpanel\" aria-labelledby=\"nav-forum-tab\">\
         <div class=\"container\" id=\"forum\">\
