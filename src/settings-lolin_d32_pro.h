@@ -38,9 +38,9 @@
     #define RFID_SCK                        18          // GPIO for clock-signal (RFID)
 
     #ifdef RFID_READER_TYPE_PN5180
-        #define RFID_BUSY                   33          // PN5180 BUSY PIN
+        #define RFID_BUSY                   39          // PN5180 BUSY PIN
         #define RFID_RST                    22          // PN5180 RESET PIN
-        #define RFID_IRQ                    39          // PN5180 IRQ PIN (only needed for low power card detection)
+        #define RFID_IRQ                    99          // PN5180 IRQ PIN (only needed for low power card detection)
     #endif
     // I2S (DAC)
     #define I2S_DOUT                        25          // Digital out (I2S)

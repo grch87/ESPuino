@@ -89,6 +89,7 @@ char **SdCard_ReturnPlaylist(const char *fileName, const uint32_t _playMode) {
     char cacheFileNameBuf[275];
     bool readFromCacheFile = false;
     bool enablePlaylistCaching = false;
+    bool enablePlaylistFromM3u = false;
 
     // Look if file/folder requested really exists. If not => break.
     File fileOrDirectory = gFSystem.open(fileName);
@@ -97,6 +98,7 @@ char **SdCard_ReturnPlaylist(const char *fileName, const uint32_t _playMode) {
         return NULL;
     }
 
+    // Create linear playlist of caching-file
     #ifdef CACHED_PLAYLIST_ENABLE
         strncpy(cacheFileNameBuf, fileName, sizeof(cacheFileNameBuf));
         strcat(cacheFileNameBuf, "/");
@@ -151,8 +153,60 @@ char **SdCard_ReturnPlaylist(const char *fileName, const uint32_t _playMode) {
         Log_Println(Log_Buffer, LOGLEVEL_DEBUG);
     }
 
-    // Don't read from cachefile (if cachefile doesn't exist, playmode doesn't fit or caching isn't desired)
-    if (!readFromCacheFile) {
+    // Parse m3u-playlist and create linear-playlist out of it
+    if (_playMode == LOCAL_M3U) {
+        if (fileOrDirectory && !fileOrDirectory.isDirectory() && fileOrDirectory.size() >= 0) {
+            enablePlaylistFromM3u = true;
+            uint16_t allocCount = 1;
+            uint16_t allocSize = 1024;
+            if (psramInit()) {
+                allocSize = 65535; // There's enough PSRAM. So we don't have to care...
+            }
+
+            serializedPlaylist = (char *) x_calloc(allocSize, sizeof(char));
+            if (serializedPlaylist == NULL) {
+                Log_Println((char *) FPSTR(unableToAllocateMemForLinearPlaylist), LOGLEVEL_ERROR);
+                System_IndicateError();
+                return files;
+            }
+            char buf;
+            char lastBuf = '#';
+            uint32_t fPos = 1;
+
+            serializedPlaylist[0] = '#';
+            while (fileOrDirectory.available() > 0) {
+                buf = fileOrDirectory.read();
+                if (fPos+1 >= allocCount * allocSize) {
+                    serializedPlaylist = (char *) realloc(serializedPlaylist, ++allocCount * allocSize);
+                    Log_Println((char *) FPSTR(reallocCalled), LOGLEVEL_DEBUG);
+                    if (serializedPlaylist == NULL) {
+                        Log_Println((char *) FPSTR(unableToAllocateMemForLinearPlaylist), LOGLEVEL_ERROR);
+                        System_IndicateError();
+                        free(serializedPlaylist);
+                        return files;
+                    }
+                }
+
+                if (buf != '\n' && buf != '\r') {
+                    serializedPlaylist[fPos++] = buf;
+                    lastBuf = buf;
+                } else {
+                    if (lastBuf != '#') {   // Strip empty lines from m3u
+                        serializedPlaylist[fPos++] = '#';
+                        lastBuf = '#';
+                    }
+                }
+            }
+            if (serializedPlaylist[fPos-1] == '#') {    // Remove trailing delimiter if set
+                serializedPlaylist[fPos-1] = '\0';
+            }
+        } else {
+            return files;
+        }
+    }
+
+    // Don't read from cachefile or m3u-file. Means: read filenames from SD and make playlist of it
+    if (!readFromCacheFile && !enablePlaylistFromM3u) {
         Log_Println((char *) FPSTR(playlistGenModeUncached), LOGLEVEL_NOTICE);
         // File-mode
         if (!fileOrDirectory.isDirectory()) {
@@ -173,7 +227,7 @@ char **SdCard_ReturnPlaylist(const char *fileName, const uint32_t _playMode) {
             return ++files;
         }
 
-        // Directory-mode
+        // Directory-mode (linear-playlist)
         uint16_t allocCount = 1;
         uint16_t allocSize = 4096;
         if (psramInit()) {

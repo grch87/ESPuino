@@ -31,7 +31,7 @@
     const char nameOfFileFound[] PROGMEM = "File found";
     const char reallocCalled[] PROGMEM = "Reallocated memory.";
     const char unableToAllocateMemForLinearPlaylist[] PROGMEM = "Unable to allocate memory for linear playlist!";
-    const char numberOfValidFiles[] PROGMEM = "Number of valid files";
+    const char numberOfValidFiles[] PROGMEM = "Number of valid files/webstreams";
     const char newLoudnessReceivedQueue[] PROGMEM = "New volume received via queue";
     const char newCntrlReceivedQueue[] PROGMEM = "Control-command received via queue";
     const char newPlaylistReceived[] PROGMEM = "New playlist received";
@@ -72,6 +72,7 @@
     const char modeAllTrackAlphSortedLoop[] PROGMEM = "Mode: all tracks (in alph. order) of directory as infinite loop";
     const char modeAllTrackRandomLoop[] PROGMEM = "Mode: all tracks (in random order) of directory as infinite loop";
     const char modeWebstream[] PROGMEM = "Mode: webstream";
+    const char modeWebstreamM3u[] PROGMEM = "Mode: Webstream (local .m3u-file)";
     const char webstreamNotAvailable[] PROGMEM = "Unable to access webstream as no wifi-connection is available!";
     const char modeDoesNotExist[] PROGMEM = "Playmode does not exist!";
     const char modeRepeatNone[] PROGMEM = "Repeatmode: no repeat";
@@ -204,5 +205,6 @@
     const char fwEnd[] PROGMEM = "Firmware-update finished";
     const char otaNotSupported[] PROGMEM = "Firmware-update isn't supported by this ESPuino!";
     const char otaNotSupportedWebsite[] PROGMEM = "<p>FFirmware-update isn't supported by this ESPuino!<br />Back to <a href=\"javascript:history.back()\">last page</a>.</p>";
+    const char noPlaylist[] PROGMEM = "No active playlist.";
 
 #endif

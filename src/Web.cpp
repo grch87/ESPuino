@@ -21,6 +21,7 @@
 #include "System.h"
 #include "Web.h"
 #include "Wlan.h"
+#include "revision.h"
 
 #if (LANGUAGE == DE)
     #include "HTMLaccesspoint_DE.h"
@@ -174,6 +175,7 @@ void webserverStart(void) {
                     snprintf(Log_Buffer, Log_BufferLength, "\n%s: %.2f V", (char *) FPSTR(currentVoltageMsg), Battery_GetVoltage());
                     info += (String) Log_Buffer;
                 #endif
+                info += "\n" + (String) softwareRevision;
                 request->send_P(200, "text/plain", info.c_str());
             });
 
@@ -487,6 +489,8 @@ bool processJsonRequest(char *_serialJson) {
             uint8_t cmd = doc["controls"]["action"].as<uint8_t>();
             Cmd_Action(cmd);
         }
+    } else if (doc.containsKey("getTrack")) {
+        Web_SendWebsocketData(0, 30);
     }
 
     return true;
@@ -494,10 +498,9 @@ bool processJsonRequest(char *_serialJson) {
 
 // Sends JSON-answers via websocket
 void Web_SendWebsocketData(uint32_t client, uint8_t code) {
-    char *jBuf;
-    jBuf = (char *)x_calloc(255, sizeof(char));
+    char *jBuf = (char *) x_calloc(255, sizeof(char));
 
-    const size_t CAPACITY = JSON_OBJECT_SIZE(1) + 20;
+    const size_t CAPACITY = JSON_OBJECT_SIZE(1) + 200;
     StaticJsonDocument<CAPACITY> doc;
     JsonObject object = doc.to<JsonObject>();
 
@@ -509,6 +512,15 @@ void Web_SendWebsocketData(uint32_t client, uint8_t code) {
         object["rfidId"] = gCurrentRfidTagId;
     } else if (code == 20) {
         object["pong"] = "pong";
+    } else if (code == 30) {
+        if (gPlayProperties.playMode == NO_PLAYLIST) {
+            object["track"] = (char *)FPSTR (noPlaylist);
+        } else {
+            snprintf(Log_Buffer, Log_BufferLength, "(%u / %u): %s", gPlayProperties.currentTrackNumber+1,  gPlayProperties.numberOfTracks, *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
+            char utf8Buffer[200];
+            convertAsciiToUtf8(Log_Buffer, utf8Buffer);
+            object["track"] = utf8Buffer;
+        }
     }
 
     serializeJson(doc, jBuf, 255);
@@ -545,7 +557,9 @@ void onWebsocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
             Serial.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
 
             if (processJsonRequest((char *)data)) {
-                Web_SendWebsocketData(client->id(), 1);
+                if (strncmp((char *)data, "getTrack", 8)) {   // Don't send back ok-feedback if track's name is requested in background
+                    Web_SendWebsocketData(client->id(), 1);
+                }
             }
 
             if (info->opcode == WS_TEXT) {
@@ -626,6 +640,9 @@ void explorerHandleFileStorageTask(void *parameter) {
 
     File uploadFile;
     size_t item_size;
+    size_t bytesOk = 0;
+    size_t bytesNok = 0;
+    uint32_t transferStartTimestamp = millis();
     uint8_t *item;
     uint8_t value = 0;
 
@@ -635,22 +652,35 @@ void explorerHandleFileStorageTask(void *parameter) {
     uploadFile = gFSystem.open((char *)parameter, "w");
 
     for (;;) {
-        esp_task_wdt_reset();
+        //esp_task_wdt_reset();
 
         item = (uint8_t *)xRingbufferReceive(explorerFileUploadRingBuffer, &item_size, portTICK_PERIOD_MS * 100);
         if (item != NULL) {
-            uploadFile.write(item, item_size);
+            if (!uploadFile.write(item, item_size)) {
+                bytesNok += item_size;
+            } else {
+                bytesOk += item_size;
+            }
             vRingbufferReturnItem(explorerFileUploadRingBuffer, (void *)item);
         } else {
             // No data in the buffer, check if all data arrived for the file
             uploadFileNotification = xTaskNotifyWait(0, 0, &uploadFileNotificationValue, 0);
             if (uploadFileNotification == pdPASS) {
                 uploadFile.close();
+                snprintf(Log_Buffer, Log_BufferLength, "%s: %s => %zu bytes in %lu ms (%lu kB/s)", (char *)FPSTR (fileWritten), (char *)parameter, bytesNok+bytesOk, (millis() - transferStartTimestamp), (bytesNok+bytesOk)/(millis() - transferStartTimestamp));
+                Log_Println(Log_Buffer, LOGLEVEL_INFO);
+                snprintf(Log_Buffer, Log_BufferLength, "Bytes [ok] %zu / [not ok] %zu\n", bytesOk, bytesNok);
+                Log_Println(Log_Buffer, LOGLEVEL_DEBUG);
                 // done exit loop to terminate
                 break;
             }
             vTaskDelay(portTICK_PERIOD_MS * 100);
         }
+        #ifdef SD_MMC_1BIT_MODE
+            vTaskDelay(portTICK_PERIOD_MS * 1);
+        #else
+            vTaskDelay(portTICK_PERIOD_MS * 6);
+        #endif
     }
     // send signal to upload function to terminate
     xQueueSend(explorerFileUploadStatusQueue, &value, 0);

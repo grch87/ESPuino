@@ -16,6 +16,7 @@
 #include "SdCard.h"
 #include "System.h"
 #include "Wlan.h"
+#include "Web.h"
 
 #define AUDIOPLAYER_VOLUME_MAX 21u
 #define AUDIOPLAYER_VOLUME_MIN 0u
@@ -102,7 +103,7 @@ void AudioPlayer_Init(void) {
         xTaskCreatePinnedToCore(
             AudioPlayer_Task,      /* Function to implement the task */
             "mp3play",             /* Name of the task */
-            4000,                  /* Stack size in words */
+            5000,                  /* Stack size in words */
             NULL,                  /* Task input parameter */
             2 | portPRIVILEGE_BIT, /* Priority of the task */
             NULL,                  /* Task handle. */
@@ -253,6 +254,10 @@ void AudioPlayer_Task(void *parameter) {
     #else
         static Audio audioAsStatic;         // Don't use heap as it's needed for other stuff :-)
         Audio *audio = &audioAsStatic;
+    #endif
+
+    #ifdef I2S_COMM_FMT_LSB_ENABLE
+        audio->setI2SCommFMT_LSB(true);
     #endif
 
     uint8_t settleCount = 0;
@@ -529,6 +534,7 @@ void AudioPlayer_Task(void *parameter) {
                     #endif
                     gPlayProperties.playlistFinished = true;
                     gPlayProperties.playMode = NO_PLAYLIST;
+                    Web_SendWebsocketData(0, 30);
                     #ifdef MQTT_ENABLE
                         publishMqtt((char *) FPSTR(topicPlaymodeState), gPlayProperties.playMode, false);
                     #endif
@@ -553,10 +559,19 @@ void AudioPlayer_Task(void *parameter) {
                 }
             }
 
-            if (gPlayProperties.playMode == WEBSTREAM) { // Webstream
-                audio->connecttohost(*(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
-                gPlayProperties.playlistFinished = false;
+            if (!strncmp("http", *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber), 4)) {
+                gPlayProperties.isWebstream = true;
             } else {
+                gPlayProperties.isWebstream = false;
+            }
+            gPlayProperties.currentRelPos = 0;
+            audioReturnCode = false;
+
+            if (gPlayProperties.playMode == WEBSTREAM || (gPlayProperties.playMode == LOCAL_M3U && gPlayProperties.isWebstream)) { // Webstream
+                audioReturnCode = audio->connecttohost(*(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
+                gPlayProperties.playlistFinished = false;
+                Web_SendWebsocketData(0, 30);
+            } else if (gPlayProperties.playMode != WEBSTREAM && !gPlayProperties.isWebstream) {
                 // Files from SD
                 if (!gFSystem.exists(*(gPlayProperties.playlist + gPlayProperties.currentTrackNumber))) { // Check first if file/folder exists
                     snprintf(Log_Buffer, Log_BufferLength, "%s: %s", (char *) FPSTR(dirOrFileDoesNotExist), *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
@@ -566,30 +581,38 @@ void AudioPlayer_Task(void *parameter) {
                 } else {
                     audioReturnCode = audio->connecttoFS(gFSystem, *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
                     // consider track as finished, when audio lib call was not successful
-                    if (!audioReturnCode) {
-                        System_IndicateError();
-                        gPlayProperties.trackFinished = true;
-                        continue;
-                    }
+                }
+            }
+
+            if (!audioReturnCode) {
+                System_IndicateError();
+                gPlayProperties.trackFinished = true;
+                continue;
+            } else {
+                if (gPlayProperties.currentTrackNumber) {
                     Led_Indicate(LedIndicatorType::PlaylistProgress);
-                    if (gPlayProperties.startAtFilePos > 0) {
-                        audio->setFilePos(gPlayProperties.startAtFilePos);
-                        snprintf(Log_Buffer, Log_BufferLength, "%s %u", (char *) FPSTR(trackStartatPos), audio->getFilePos());
-                        Log_Println(Log_Buffer, LOGLEVEL_NOTICE);
-                    }
+                }
+                if (gPlayProperties.startAtFilePos > 0) {
+                    audio->setFilePos(gPlayProperties.startAtFilePos);
+                    gPlayProperties.startAtFilePos = 0;
+                    snprintf(Log_Buffer, Log_BufferLength, "%s %u", (char *) FPSTR(trackStartatPos), audio->getFilePos());
+                    Log_Println(Log_Buffer, LOGLEVEL_NOTICE);
+                }
+                if (!gPlayProperties.isWebstream) {         // Is done via audio_showstation()
                     char buf[255];
                     snprintf(buf, sizeof(buf) / sizeof(buf[0]), "(%d/%d) %s", (gPlayProperties.currentTrackNumber + 1), gPlayProperties.numberOfTracks, (const char *)*(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
+                    Web_SendWebsocketData(0, 30);
                     #ifdef MQTT_ENABLE
                         publishMqtt((char *) FPSTR(topicTrackState), buf, false);
                     #endif
-                    #if (LANGUAGE == DE)
-                        snprintf(Log_Buffer, Log_BufferLength, "'%s' wird abgespielt (%d von %d)", *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber), (gPlayProperties.currentTrackNumber + 1), gPlayProperties.numberOfTracks);
-                    #else
-                        snprintf(Log_Buffer, Log_BufferLength, "'%s' is being played (%d of %d)", *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber), (gPlayProperties.currentTrackNumber + 1), gPlayProperties.numberOfTracks);
-                    #endif
-                    Log_Println(Log_Buffer, LOGLEVEL_NOTICE);
-                    gPlayProperties.playlistFinished = false;
                 }
+                #if (LANGUAGE == DE)
+                    snprintf(Log_Buffer, Log_BufferLength, "'%s' wird abgespielt (%d von %d)", *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber), (gPlayProperties.currentTrackNumber + 1), gPlayProperties.numberOfTracks);
+                #else
+                    snprintf(Log_Buffer, Log_BufferLength, "'%s' is being played (%d of %d)", *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber), (gPlayProperties.currentTrackNumber + 1), gPlayProperties.numberOfTracks);
+                #endif
+                Log_Println(Log_Buffer, LOGLEVEL_NOTICE);
+                gPlayProperties.playlistFinished = false;
             }
         }
 
@@ -598,20 +621,22 @@ void AudioPlayer_Task(void *parameter) {
             if (gPlayProperties.seekmode == SEEK_FORWARDS) {
                 if (audio->setTimeOffset(jumpOffset)) {
                     #if (LANGUAGE == DE)
-                        Serial.printf("%d Sekunden nach vorne gesprungen\n", jumpOffset);
+                        snprintf(Log_Buffer, Log_BufferLength, "%d Sekunden nach vorne gesprungen", jumpOffset);
                     #else
-                        Serial.printf("Jumped %d seconds forwards\n", jumpOffset);
+                        snprintf(Log_Buffer, Log_BufferLength, "Jumped %d seconds forwards", jumpOffset);
                     #endif
+                    Log_Println(Log_Buffer, LOGLEVEL_NOTICE);
                 } else {
                     System_IndicateError();
                 }
             } else if (gPlayProperties.seekmode == SEEK_BACKWARDS) {
                 if (audio->setTimeOffset(-(jumpOffset))) {
                     #if (LANGUAGE == DE)
-                        Serial.printf("%d Sekunden zurueck gesprungen\n", jumpOffset);
+                        snprintf(Log_Buffer, Log_BufferLength, "%d Sekunden zurueck gesprungen", jumpOffset);
                     #else
-                        Serial.printf("Jumped %d seconds backwards\n", jumpOffset);
+                        snprintf(Log_Buffer, Log_BufferLength, "Jumped %d seconds backwards", jumpOffset);
                     #endif
+                    Log_Println(Log_Buffer, LOGLEVEL_NOTICE);
                 } else {
                     System_IndicateError();
                 }
@@ -633,7 +658,7 @@ void AudioPlayer_Task(void *parameter) {
         }
 
         // Calculate relative position in file (for neopixel) for SD-card-mode
-        if (!gPlayProperties.playlistFinished && gPlayProperties.playMode != WEBSTREAM) {
+        if (!gPlayProperties.playlistFinished && !gPlayProperties.isWebstream) {
             double fp = (double)audio->getFilePos() / (double)audio->getFileSize();
             if (millis() % 100 == 0) {
                 gPlayProperties.currentRelPos = fp * 100;
@@ -865,6 +890,22 @@ void AudioPlayer_TrackQueueDispatcher(const char *_itemToPlay, const uint32_t _l
             break;
         }
 
+        case LOCAL_M3U: { // Can be one or more webradio-station(s)
+            Log_Println((char *) FPSTR(modeWebstreamM3u), LOGLEVEL_NOTICE);
+            if (Wlan_IsConnected()) {
+                xQueueSend(gTrackQueue, &(musicFiles), 0);
+                #ifdef MQTT_ENABLE
+                    publishMqtt((char *) FPSTR(topicPlaymodeState), gPlayProperties.playMode, false);
+                    publishMqtt((char *) FPSTR(topicRepeatModeState), NO_REPEAT, false);
+                #endif
+            } else {
+                Log_Println((char *) FPSTR(webstreamNotAvailable), LOGLEVEL_ERROR);
+                System_IndicateError();
+                gPlayProperties.playMode = NO_PLAYLIST;
+            }
+            break;
+        }
+
         default:
             Log_Println((char *) FPSTR(modeDoesNotExist), LOGLEVEL_ERROR);
             gPlayProperties.playMode = NO_PLAYLIST;
@@ -896,7 +937,7 @@ size_t AudioPlayer_NvsRfidWriteWrapper(const char *_rfidCardId, const char *_tra
 
     snprintf(prefBuf, sizeof(prefBuf) / sizeof(prefBuf[0]), "%s%s%s%u%s%d%s%u", stringDelimiter, trackBuf, stringDelimiter, _playPosition, stringDelimiter, _playMode, stringDelimiter, _trackLastPlayed);
     #if (LANGUAGE == DE)
-        snprintf(Log_Buffer, Log_BufferLength, "Schreibe '%s' in NVS für RFID-Card-ID %s mit playmode %d und letzter Track %u\n", prefBuf, _rfidCardId, _playMode, _trackLastPlayed);
+        snprintf(Log_Buffer, Log_BufferLength, "Schreibe '%s' in NVS für RFID-Card-ID %s mit Abspielmodus %d und letzter Track %u\n", prefBuf, _rfidCardId, _playMode, _trackLastPlayed);
     #else
         snprintf(Log_Buffer, Log_BufferLength, "Write '%s' to NVS for RFID-Card-ID %s with playmode %d and last track %u\n", prefBuf, _rfidCardId, _playMode, _trackLastPlayed);
     #endif
@@ -932,7 +973,7 @@ void AudioPlayer_TrackControlToQueueSender(const uint8_t trackCommand) {
 
 // Knuth-Fisher-Yates-algorithm to randomize playlist
 void AudioPlayer_SortPlaylist(char *str[], const uint32_t count) {
-    if (count < 1) {
+    if (!count) {
         return;
     }
 
@@ -941,11 +982,7 @@ void AudioPlayer_SortPlaylist(char *str[], const uint32_t count) {
     uint32_t max = count - 1;
 
     for (i = 0; i < count; i++) {
-        if (max > 0) {
-            r = rand() % max;
-        } else {
-            r = 0;
-        }
+        r = (max > 0) ? rand() % max : 0;
         swap = *(str + max);
         *(str + max) = *(str + r);
         *(str + r) = swap;
