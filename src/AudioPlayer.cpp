@@ -23,6 +23,7 @@
 #define AUDIOPLAYER_VOLUME_INIT 3u
 
 playProps gPlayProperties;
+//uint32_t cnt123 = 0;
 
 // Volume
 static uint8_t AudioPlayer_CurrentVolume = AUDIOPLAYER_VOLUME_INIT;
@@ -103,7 +104,7 @@ void AudioPlayer_Init(void) {
         xTaskCreatePinnedToCore(
             AudioPlayer_Task,      /* Function to implement the task */
             "mp3play",             /* Name of the task */
-            5000,                  /* Stack size in words */
+            5500,                  /* Stack size in words */
             NULL,                  /* Task input parameter */
             2 | portPRIVILEGE_BIT, /* Priority of the task */
             NULL,                  /* Task handle. */
@@ -274,6 +275,10 @@ void AudioPlayer_Task(void *parameter) {
     bool audioReturnCode;
 
     for (;;) {
+        /*if (cnt123++ % 100 == 0) {
+            snprintf(Log_Buffer, Log_BufferLength, "%u", uxTaskGetStackHighWaterMark(NULL));
+            Log_Println(Log_Buffer, LOGLEVEL_DEBUG);
+        }*/
         if (xQueueReceive(gVolumeQueue, &currentVolume, 0) == pdPASS) {
             snprintf(Log_Buffer, Log_BufferLength, "%s: %d", (char *) FPSTR(newLoudnessReceivedQueue), currentVolume);
             Log_Println(Log_Buffer, LOGLEVEL_INFO);
@@ -687,7 +692,8 @@ void AudioPlayer_Task(void *parameter) {
             }
         }
 
-        esp_task_wdt_reset(); // Don't forget to feed the dog!
+        vTaskDelay(portTICK_PERIOD_MS * 1);
+        //esp_task_wdt_reset(); // Don't forget to feed the dog!
     }
     vTaskDelete(NULL);
 }
@@ -728,6 +734,15 @@ void AudioPlayer_VolumeToQueueSender(const int32_t _newVolume, bool reAdjustRota
 // Receives de-serialized RFID-data (from NVS) and dispatches playlists for the given
 // playmode to the track-queue.
 void AudioPlayer_TrackQueueDispatcher(const char *_itemToPlay, const uint32_t _lastPlayPos, const uint32_t _playMode, const uint16_t _trackLastPlayed) {
+    // Make sure last playposition for audiobook is saved when new RFID-tag is applied
+    #ifdef SAVE_PLAYPOS_WHEN_RFID_CHANGE
+        if (!gPlayProperties.pausePlay && (gPlayProperties.playMode == AUDIOBOOK || gPlayProperties.playMode == AUDIOBOOK_LOOP)) {
+            AudioPlayer_TrackControlToQueueSender(PAUSEPLAY);
+            while (!gPlayProperties.pausePlay) {    // Make sure to wait until playback is paused in order to be sure that playposition saved in NVS
+                vTaskDelay(portTICK_RATE_MS * 100u);
+            }
+        }
+    #endif
     char *filename;
     filename = (char *) x_malloc(sizeof(char) * 255);
 
@@ -755,12 +770,26 @@ void AudioPlayer_TrackQueueDispatcher(const char *_itemToPlay, const uint32_t _l
     if (musicFiles == NULL) {
         Log_Println((char *) FPSTR(errorOccured), LOGLEVEL_ERROR);
         System_IndicateError();
-        gPlayProperties.playMode = NO_PLAYLIST;
+        if (!gPlayProperties.pausePlay) {
+            AudioPlayer_TrackControlToQueueSender(STOP);
+            while (!gPlayProperties.pausePlay) {
+                vTaskDelay(portTICK_RATE_MS * 10u);
+            }
+        } else {
+            gPlayProperties.playMode = NO_PLAYLIST;
+        }
         return;
     } else if (!strcmp(*(musicFiles - 1), "0")) {
         Log_Println((char *) FPSTR(noMp3FilesInDir), LOGLEVEL_NOTICE);
         System_IndicateError();
-        gPlayProperties.playMode = NO_PLAYLIST;
+        if (!gPlayProperties.pausePlay) {
+            AudioPlayer_TrackControlToQueueSender(STOP);
+            while (!gPlayProperties.pausePlay) {
+                vTaskDelay(portTICK_RATE_MS * 10u);
+            }
+        } else {
+            gPlayProperties.playMode = NO_PLAYLIST;
+        }
         free(filename);
         return;
     }

@@ -9,13 +9,15 @@
     //################## HARDWARE-PLATFORM ###############################
     /* Make sure to also edit the configfile, that is specific for your platform.
     If in doubts (your develboard is not listed) use HAL 1
-    1: Wemos Lolin32             => settings-lolin32.h
-    2: ESP32-A1S Audiokit        => settings-espa1s.h
-    3: Wemos Lolin D32           => settings-lolin_D32.h
-    4: Wemos Lolin D32 pro       => settings-lolin_D32_pro.h
-    5: Lilygo T8 (V1.7)          => settings-ttgo_t8.h
-    6: ESPuino complete          => settings-complete.h
-    99: custom                   => settings-custom.h
+    1: Wemos Lolin32                        => settings-lolin32.h
+    2: ESP32-A1S Audiokit                   => settings-espa1s.h
+    3: Wemos Lolin D32                      => settings-lolin_D32.h
+    4: Wemos Lolin D32 pro                  => settings-lolin_D32_pro.h
+    5: Lilygo T8 (V1.7)                     => settings-ttgo_t8.h
+    6: ESPuino complete                     => settings-complete.h
+    7: Lolin D32 pro SDMMC Port-Expander    => settings-lolin_d32_pro_sdmmc_pe.h
+    8: AZDelivery ESP32 NodeMCU             => settings-azdelivery_sdmmc.h
+    99: custom                              => settings-custom.h
     more to come...
     */
     #ifndef HAL             // Will be set by platformio.ini. If using Arduini-IDE you have to set HAL according your needs!
@@ -24,7 +26,7 @@
 
 
     //########################## MODULES #################################
-    //#define PORT_EXPANDER_ENABLE          // When enabled, buttons can be connected via port-expander PCA9555
+    //#define PORT_EXPANDER_ENABLE          // When enabled, buttons can be connected via port-expander PCA9555 (https://forum.espuino.de/t/einsatz-des-port-expanders-pca9555/306)
     //#define I2S_COMM_FMT_LSB_ENABLE       // Enables FMT instead of MSB for I2S-communication-format. Used e.g. by PT2811. Don't enable for MAX98357a, AC101 or PCM5102A)
     #define MDNS_ENABLE                     // When enabled, you don't have to handle with ESPuino's IP-address. If hostname is set to "ESPuino", you can reach it via ESPuino.local
     //#define MQTT_ENABLE                     // Make sure to configure mqtt-server and (optionally) username+pwd
@@ -41,13 +43,15 @@
     //#define USE_LAST_VOLUME_AFTER_REBOOT  // Remembers the volume used at last shutdown after reboot
     #define USEROTARY_ENABLE                // If rotary-encoder is used (don't forget to review WAKEUP_BUTTON if you disable this feature!)
     #define BLUETOOTH_ENABLE                // If enabled and bluetooth-mode is active, you can stream to your ESPuino via bluetooth (a2dp-sink).
-    //#define IR_CONTROL_ENABLE             // Enables remote control
-    //#define CACHED_PLAYLIST_ENABLE          // Enables playlist-caching (infos: https://forum.espuino.de/t/neues-feature-cached-playlist/515)
-    //#define PAUSE_WHEN_RFID_REMOVED       // (Only PN5180) Playback starts when card is applied and pauses, when card is removed (https://forum.espuino.de/t/neues-feature-pausieren-wenn-rfid-karte-entfernt-wurde/541)
+    //#define IR_CONTROL_ENABLE             // Enables remote control (https://forum.espuino.de/t/neues-feature-fernsteuerung-per-infrarot-fernbedienung/265)
+    #define CACHED_PLAYLIST_ENABLE          // Enables playlist-caching (infos: https://forum.espuino.de/t/neues-feature-cached-playlist/515)
+    //#define PAUSE_WHEN_RFID_REMOVED       // Playback starts when card is applied and pauses automatically, when card is removed (https://forum.espuino.de/t/neues-feature-pausieren-wenn-rfid-karte-entfernt-wurde/541)
+    //#define SAVE_PLAYPOS_BEFORE_SHUTDOWN  // When playback is active and mode audiobook was selected, last play-position is saved automatically when shutdown is initiated
+    //#define SAVE_PLAYPOS_WHEN_RFID_CHANGE // When playback is active and mode audiobook was selected, last play-position is saved automatically for old playlist when new RFID-tag is applied
 
 
     //################## select SD card mode #############################
-    #define SD_MMC_1BIT_MODE              // run SD card in SD-MMC 1Bit mode
+    #define SD_MMC_1BIT_MODE              // run SD card in SD-MMC 1Bit mode (using GPIOs 15 + 14 + 2 is mandatory!)
     //#define SINGLE_SPI_ENABLE             // If only one SPI-instance should be used instead of two (not yet working!)
 
 
@@ -71,7 +75,7 @@
 
     //############# Port-expander-configuration ######################
     #ifdef PORT_EXPANDER_ENABLE
-        constexpr uint8_t expanderI2cAddress = 0x20;  // I2C-address of PCA9555
+        constexpr uint8_t expanderI2cAddress = 0x20;  // I2C-address of PCA9555 (0x20 is true if PCA's pins A0+A1+A2 are pulled to GND)
     #endif
 
     //################## BUTTON-Layout ##################################
@@ -234,8 +238,14 @@
         #include "settings-ttgo_t8.h"                       // Contains all user-relevant settings for Lilygo TTGO T8 1.7
     #elif (HAL == 6)
         #include "settings-complete.h"                      // Contains all user-relevant settings for ESPuino complete
+    #elif (HAL == 7)
+        #include "settings-lolin_d32_pro_sdmmc_pe.h"        // Pre-configured settings for ESPuino Lolin D32 pro with SDMMC + port-expander (https://forum.espuino.de/t/lolin-d32-pro-mit-sd-mmc-pn5180-max-fuenf-buttons-und-port-expander-smd/638)
+    #elif (HAL == 8)
+        #include "settings-azdelivery_sdmmc.h"              // Pre-configured settings for AZ Delivery ESP32 NodeMCU / Devkit C (https://forum.espuino.de/t/az-delivery-esp32-nodemcu-devkit-c-mit-sd-mmc-und-pn5180-als-rfid-leser/634)
     #elif (HAL == 99)
         #include "settings-custom.h"                        // Contains all user-relevant settings custom-board
     #endif
+
+    //#define ENABLE_ESPUINO_DEBUG                            // Needs modification of platformio.ini (https://forum.espuino.de/t/rfid-mit-oder-ohne-task/353/21); better don't enable unless you know what you're doing :-)
 
 #endif

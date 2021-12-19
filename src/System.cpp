@@ -8,6 +8,10 @@
 #include "Mqtt.h"
 #include "SdCard.h"
 #include "Port.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_system.h"
+#include "Audio.h"
 
 constexpr const char prefsRfidNamespace[] PROGMEM = "rfidTags";     // Namespace used to save IDs of rfid-tags
 constexpr const char prefsSettingsNamespace[] PROGMEM = "settings"; // Namespace used for generic settings
@@ -187,6 +191,19 @@ void System_DeepSleepManager(void) {
             return;
         }
 
+        System_Sleeping = true;
+        Log_Println((char *) FPSTR(goToSleepNow), LOGLEVEL_NOTICE);
+
+        // Make sure last playposition for audiobook is saved when playback is active while shutdown was initiated
+        #ifdef SAVE_PLAYPOS_BEFORE_SHUTDOWN
+            if (!gPlayProperties.pausePlay && (gPlayProperties.playMode == AUDIOBOOK || gPlayProperties.playMode == AUDIOBOOK_LOOP)) {
+                AudioPlayer_TrackControlToQueueSender(PAUSEPLAY);
+                while (!gPlayProperties.pausePlay) {    // Make sure to wait until playback is paused in order to be sure that playposition saved in NVS
+                    vTaskDelay(portTICK_RATE_MS * 100u);
+                }
+            }
+        #endif
+
         // Disable amps in order to avoid ugly noises when powering off
         #ifdef GPIO_PA_EN
             Port_Write(GPIO_PA_EN, false);
@@ -194,9 +211,6 @@ void System_DeepSleepManager(void) {
         #ifdef GPIO_HP_EN
             Port_Write(GPIO_HP_EN, false);
         #endif
-
-        System_Sleeping = true;
-        Log_Println((char *) FPSTR(goToSleepNow), LOGLEVEL_NOTICE);
 
         Mqtt_Exit();
         Led_Exit();
@@ -211,6 +225,9 @@ void System_DeepSleepManager(void) {
         digitalWrite(POWER, LOW);
         delay(200);
         Rfid_Exit();
+        #ifdef PORT_EXPANDER_ENABLE
+            Port_Exit();
+        #endif
         Serial.println(F("deep-sleep, good night......."));
         esp_deep_sleep_start();
     }
@@ -227,3 +244,12 @@ void System_ShowUpgradeWarning(void) {
         Log_Println((char *) FPSTR(warningRefactoring), LOGLEVEL_ERROR);
     }
 }
+
+#ifdef ENABLE_ESPUINO_DEBUG
+    void System_esp_print_tasks(void) {
+        char *pbuffer = (char *)calloc(2048, 1);
+        vTaskGetRunTimeStats(pbuffer);
+        Serial.printf("=====\n%s\n=====", pbuffer);
+        free(pbuffer);
+    }
+#endif
