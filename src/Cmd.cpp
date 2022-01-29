@@ -11,6 +11,13 @@
 #include "System.h"
 #include "Wlan.h"
 
+// Only enable measurements if valid GPIO is used
+#ifdef MEASURE_BATTERY_VOLTAGE
+    #if (VOLTAGE_READ_PIN >= 0 && VOLTAGE_READ_PIN <= 39)
+        #define ENABLE_BATTERY_MEASUREMENTS
+    #endif
+#endif
+
 void Cmd_Action(const uint16_t mod) {
     switch (mod) {
         case CMD_LOCK_BUTTONS_MOD: { // Locks/unlocks all buttons
@@ -72,9 +79,7 @@ void Cmd_Action(const uint16_t mod) {
                 #ifdef NEOPIXEL_ENABLE
                     Led_ResetToInitialBrightness();
                 #endif
-            }
-            else
-            {
+            } else {
                 Log_Println((char *) FPSTR(modificatorSleepAtEOT), LOGLEVEL_NOTICE);
                 #ifdef MQTT_ENABLE
                     publishMqtt((char *) FPSTR(topicSleepTimerState), "EOT", false);
@@ -254,17 +259,38 @@ void Cmd_Action(const uint16_t mod) {
 
         #ifdef FTP_ENABLE
             case CMD_ENABLE_FTP_SERVER: {
-                Ftp_EnableServer();
+                if (millis() <= 30000) {    // Only allow to enable FTP within the first 30s after start (to prevent children it mess it up)
+                    Ftp_EnableServer();
+                } else {
+                    Log_Println((char *) FPSTR(ftpEnableTooLate), LOGLEVEL_ERROR);
+                    System_IndicateError();
+                }
                 break;
             }
         #endif
+
+        case CMD_TELL_IP_ADDRESS: {
+            if (Wlan_IsConnected()) {
+                if (!gPlayProperties.pausePlay) {
+                    AudioPlayer_TrackControlToQueueSender(PAUSEPLAY);
+                }
+                gPlayProperties.tellIpAddress = true;
+                gPlayProperties.currentSpeechActive = true;
+                gPlayProperties.lastSpeechActive = true;
+                System_IndicateOk();
+            } else {
+                Log_Println(unableToTellIpAddress, LOGLEVEL_ERROR);
+                System_IndicateError();
+            }
+            break;
+        }
 
         case CMD_PLAYPAUSE: {
             if (OPMODE_NORMAL == System_GetOperationMode()) {
                 AudioPlayer_TrackControlToQueueSender(PAUSEPLAY);
             } else {
                 Bluetooth_PlayPauseTrack();
-            }    
+            }
             break;
         }
 
@@ -273,7 +299,7 @@ void Cmd_Action(const uint16_t mod) {
                 AudioPlayer_TrackControlToQueueSender(PREVIOUSTRACK);
             } else {
                 Bluetooth_PreviousTrack();
-            }    
+            }
             break;
         }
 
@@ -282,7 +308,7 @@ void Cmd_Action(const uint16_t mod) {
                 AudioPlayer_TrackControlToQueueSender(NEXTTRACK);
             } else {
                 Bluetooth_NextTrack();
-            }    
+            }
             break;
         }
 
@@ -306,7 +332,7 @@ void Cmd_Action(const uint16_t mod) {
                 AudioPlayer_VolumeToQueueSender(AudioPlayer_GetCurrentVolume() + 1, true);
             } else {
                 Bluetooth_SetVolume(AudioPlayer_GetCurrentVolume() + 1, true);
-            }    
+            }
             break;
         }
 
@@ -315,12 +341,12 @@ void Cmd_Action(const uint16_t mod) {
                 AudioPlayer_VolumeToQueueSender(AudioPlayer_GetCurrentVolume() - 1, true);
             } else {
                 Bluetooth_SetVolume(AudioPlayer_GetCurrentVolume() - 1, true);
-            }    
+            }
            break;
         }
 
         case CMD_MEASUREBATTERY: {
-            #ifdef MEASURE_BATTERY_VOLTAGE
+            #ifdef ENABLE_BATTERY_MEASUREMENTS
                     float voltage = Battery_GetVoltage();
                     snprintf(Log_Buffer, Log_BufferLength, "%s: %.2f V", (char *) FPSTR(currentVoltageMsg), voltage);
                     Log_Println(Log_Buffer, LOGLEVEL_INFO);

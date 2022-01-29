@@ -33,6 +33,13 @@
 
     static void Led_Task(void *parameter);
     static uint8_t Led_Address(uint8_t number);
+
+    // Only enable measurements if valid GPIO is used
+    #ifdef MEASURE_BATTERY_VOLTAGE
+        #if (VOLTAGE_READ_PIN >= 0 && VOLTAGE_READ_PIN <= 39)
+            #define ENABLE_BATTERY_MEASUREMENTS
+        #endif
+    #endif
 #endif
 
 void Led_Init(void) {
@@ -95,6 +102,7 @@ void Led_SetPause(boolean value) {
 void Led_ResetToInitialBrightness(void) {
     #ifdef NEOPIXEL_ENABLE
         Led_Brightness = Led_InitialBrightness;
+        Log_Println((char *) FPSTR(ledsDimmedToInitialValue), LOGLEVEL_INFO);
     #endif
 }
 
@@ -147,6 +155,8 @@ static void Led_Task(void *parameter) {
         static bool redrawProgress = false;
         static uint8_t lastLedBrightness = Led_Brightness;
         static CRGB::HTMLColorCode idleColor;
+        static CRGB::HTMLColorCode speechColor = CRGB::Yellow;
+        static CRGB::HTMLColorCode generalColor;
         static CRGB leds[NUM_LEDS];
         FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
         FastLED.setBrightness(Led_Brightness);
@@ -301,7 +311,7 @@ static void Led_Task(void *parameter) {
                 }
             }
 
-        #ifdef MEASURE_BATTERY_VOLTAGE
+        #ifdef ENABLE_BATTERY_MEASUREMENTS
             // Single + Multiple LEDs: flashes red three times if battery-voltage is low
             if (LED_INDICATOR_IS_SET(LedIndicatorType::VoltageWarning)) {
                 LED_INDICATOR_CLEAR(LedIndicatorType::VoltageWarning);
@@ -432,7 +442,7 @@ static void Led_Task(void *parameter) {
                     for (uint8_t i = 0; i < numLedsToLight; i++) {
                         leds[Led_Address(i)] = CRGB::Blue;
                         FastLED.show();
-                        #ifdef MEASURE_BATTERY_VOLTAGE
+                        #ifdef ENABLE_BATTERY_MEASUREMENTS
                             if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || LED_INDICATOR_IS_SET(LedIndicatorType::VoltageWarning) || LED_INDICATOR_IS_SET(LedIndicatorType::Voltage) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
                         #else
                             if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
@@ -444,7 +454,7 @@ static void Led_Task(void *parameter) {
                     }
 
                     for (uint8_t i = 0; i <= 100; i++)  {
-                        #ifdef MEASURE_BATTERY_VOLTAGE
+                        #ifdef ENABLE_BATTERY_MEASUREMENTS
                             if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || LED_INDICATOR_IS_SET(LedIndicatorType::VoltageWarning) || LED_INDICATOR_IS_SET(LedIndicatorType::Voltage) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
                         #else
                             if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
@@ -458,7 +468,7 @@ static void Led_Task(void *parameter) {
                     for (uint8_t i = numLedsToLight; i > 0; i--) {
                         leds[Led_Address(i) - 1] = CRGB::Black;
                         FastLED.show();
-                        #ifdef MEASURE_BATTERY_VOLTAGE
+                        #ifdef ENABLE_BATTERY_MEASUREMENTS
                             if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || LED_INDICATOR_IS_SET(LedIndicatorType::VoltageWarning) || LED_INDICATOR_IS_SET(LedIndicatorType::Voltage) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
                         #else
                             if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
@@ -484,10 +494,14 @@ static void Led_Task(void *parameter) {
                 if (System_GetOperationMode() == OPMODE_BLUETOOTH) {
                     idleColor = CRGB::Blue;
                 } else {
-                    if (Wlan_IsConnected()) {
-                        idleColor = CRGB::White;
+                    if (Wlan_IsConnected() && gPlayProperties.currentSpeechActive) {
+                        idleColor = speechColor;
                     } else {
-                        idleColor = CRGB::Green;
+                        if (Wlan_IsConnected()) {
+                            idleColor = CRGB::White;
+                        } else {
+                            idleColor = CRGB::Green;
+                        }
                     }
                 }
                 if (hlastVolume == AudioPlayer_GetCurrentVolume() && lastLedBrightness == Led_Brightness) {
@@ -506,7 +520,7 @@ static void Led_Task(void *parameter) {
                         }
                         FastLED.show();
                         for (uint8_t i = 0; i <= 50; i++) {
-                            #ifdef MEASURE_BATTERY_VOLTAGE
+                            #ifdef ENABLE_BATTERY_MEASUREMENTS
                                 if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || LED_INDICATOR_IS_SET(LedIndicatorType::VoltageWarning) || LED_INDICATOR_IS_SET(LedIndicatorType::Voltage) || gPlayProperties.playMode != NO_PLAYLIST || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
                             #else
                                 if (hlastVolume != AudioPlayer_GetCurrentVolume() || lastLedBrightness != Led_Brightness || LED_INDICATOR_IS_SET(LedIndicatorType::Error) || LED_INDICATOR_IS_SET(LedIndicatorType::Ok) || gPlayProperties.playMode != NO_PLAYLIST || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
@@ -557,7 +571,7 @@ static void Led_Task(void *parameter) {
 
             default: // If playlist is active (doesn't matter which type)
                 if (!gPlayProperties.playlistFinished) {
-                    #ifdef MEASURE_BATTERY_VOLTAGE
+                    #ifdef ENABLE_BATTERY_MEASUREMENTS
                         if (gPlayProperties.pausePlay != lastPlayState || System_AreControlsLocked() != lastLockState || notificationShown || ledBusyShown || volumeChangeShown || LED_INDICATOR_IS_SET(LedIndicatorType::VoltageWarning) || LED_INDICATOR_IS_SET(LedIndicatorType::Voltage) || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
                     #else
                         if (gPlayProperties.pausePlay != lastPlayState || System_AreControlsLocked() != lastLockState || notificationShown || ledBusyShown || volumeChangeShown || !gButtons[gShutdownButton].currentState || System_IsSleepRequested()) {
@@ -594,11 +608,16 @@ static void Led_Task(void *parameter) {
                                 }
                             }
                             if (gPlayProperties.pausePlay) {
-                                leds[Led_Address(0)] = CRGB::Orange;
+                                generalColor = CRGB::Orange;
+                                if (gPlayProperties.currentSpeechActive) {
+                                    generalColor = speechColor;
+                                }
+
+                                leds[Led_Address(0)] = generalColor;
                                 if (NUM_LEDS > 1) {
-                                    leds[(Led_Address(NUM_LEDS / 4)) % NUM_LEDS] = CRGB::Orange;
-                                    leds[(Led_Address(NUM_LEDS / 2)) % NUM_LEDS] = CRGB::Orange;
-                                    leds[(Led_Address(NUM_LEDS / 4 * 3)) % NUM_LEDS] = CRGB::Orange;
+                                    leds[(Led_Address(NUM_LEDS / 4)) % NUM_LEDS] = generalColor;
+                                    leds[(Led_Address(NUM_LEDS / 2)) % NUM_LEDS] = generalColor;
+                                    leds[(Led_Address(NUM_LEDS / 4 * 3)) % NUM_LEDS] = generalColor;
                                 }
                                 break;
                             }
@@ -627,11 +646,15 @@ static void Led_Task(void *parameter) {
                                     leds[(Led_Address(ledPosWebstream) + NUM_LEDS / 2) % NUM_LEDS].setHue(webstreamColor++);
                                 }
                             } else if (gPlayProperties.pausePlay) {
+                                generalColor = CRGB::Orange;
+                                if (gPlayProperties.currentSpeechActive) {
+                                    generalColor = speechColor;
+                                }
                                 if (NUM_LEDS == 1) {
-                                    leds[0] = CRGB::Orange;
+                                    leds[0] = generalColor;
                                 } else {
-                                    leds[Led_Address(ledPosWebstream)] = CRGB::Orange;
-                                    leds[(Led_Address(ledPosWebstream) + NUM_LEDS / 2) % NUM_LEDS] = CRGB::Orange;
+                                    leds[Led_Address(ledPosWebstream)] = generalColor;
+                                    leds[(Led_Address(ledPosWebstream) + NUM_LEDS / 2) % NUM_LEDS] = generalColor;
                                 }
                             }
                         }

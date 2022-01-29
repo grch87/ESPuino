@@ -100,6 +100,8 @@ void AudioPlayer_Init(void) {
     // Adjust volume depending on headphone is connected and volume-adjustment is enabled
     AudioPlayer_SetupVolume();
 
+    // delete cover image
+    gPlayProperties.coverFileName = NULL;
     if (System_GetOperationMode() == OPMODE_NORMAL) {       // Don't start audio-task in BT-mode!
         xTaskCreatePinnedToCore(
             AudioPlayer_Task,      /* Function to implement the task */
@@ -283,6 +285,7 @@ void AudioPlayer_Task(void *parameter) {
             snprintf(Log_Buffer, Log_BufferLength, "%s: %d", (char *) FPSTR(newLoudnessReceivedQueue), currentVolume);
             Log_Println(Log_Buffer, LOGLEVEL_INFO);
             audio->setVolume(currentVolume);
+            Web_SendWebsocketData(0, 50);
             #ifdef MQTT_ENABLE
                 publishMqtt((char *) FPSTR(topicLoudnessState), currentVolume, false);
             #endif
@@ -356,6 +359,15 @@ void AudioPlayer_Task(void *parameter) {
                     gPlayProperties.pausePlay = true;
                     gPlayProperties.playlistFinished = true;
                     gPlayProperties.playMode = NO_PLAYLIST;
+                    // delete title
+                    if (gPlayProperties.title) {
+                        free(gPlayProperties.title);
+                        gPlayProperties.title = NULL;
+                    }   
+                    Web_SendWebsocketData(0, 30);
+                    // delete cover image
+					gPlayProperties.coverFileName = NULL;
+                    Web_SendWebsocketData(0, 40);
                     continue;
 
                 case PAUSEPLAY:
@@ -368,6 +380,7 @@ void AudioPlayer_Task(void *parameter) {
                         AudioPlayer_NvsRfidWriteWrapper(gPlayProperties.playRfidTag, *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber), audio->getFilePos(), gPlayProperties.playMode, gPlayProperties.currentTrackNumber, gPlayProperties.numberOfTracks);
                     }
                     gPlayProperties.pausePlay = !gPlayProperties.pausePlay;
+                    Web_SendWebsocketData(0, 30);
                     continue;
 
                 case NEXTTRACK:
@@ -441,6 +454,14 @@ void AudioPlayer_Task(void *parameter) {
                         }
                         audio->stopSong();
                         Led_Indicate(LedIndicatorType::Rewind);
+                        // delete title
+                        if (gPlayProperties.title) {
+                            free(gPlayProperties.title);
+                            gPlayProperties.title = NULL;
+                        }   
+                        // delete cover image
+						gPlayProperties.coverFileName = NULL;
+                        Web_SendWebsocketData(0, 40);
                         audioReturnCode = audio->connecttoFS(gFSystem, *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
                         // consider track as finished, when audio lib call was not successful
                         if (!audioReturnCode) {
@@ -573,6 +594,14 @@ void AudioPlayer_Task(void *parameter) {
             audioReturnCode = false;
 
             if (gPlayProperties.playMode == WEBSTREAM || (gPlayProperties.playMode == LOCAL_M3U && gPlayProperties.isWebstream)) { // Webstream
+                // delete title
+                if (gPlayProperties.title) {
+                    free(gPlayProperties.title);
+                    gPlayProperties.title = NULL;
+                }    
+                // delete cover image
+                gPlayProperties.coverFileName = NULL;
+                Web_SendWebsocketData(0, 40);
                 audioReturnCode = audio->connecttohost(*(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
                 gPlayProperties.playlistFinished = false;
                 Web_SendWebsocketData(0, 30);
@@ -584,6 +613,14 @@ void AudioPlayer_Task(void *parameter) {
                     gPlayProperties.trackFinished = true;
                     continue;
                 } else {
+                    // delete title
+                    if (gPlayProperties.title) {
+                        free(gPlayProperties.title);
+                        gPlayProperties.title = NULL;
+                    }    
+                    // delete cover image
+                    gPlayProperties.coverFileName = NULL;
+                    Web_SendWebsocketData(0, 40);
                     audioReturnCode = audio->connecttoFS(gFSystem, *(gPlayProperties.playlist + gPlayProperties.currentTrackNumber));
                     // consider track as finished, when audio lib call was not successful
                 }
@@ -647,6 +684,30 @@ void AudioPlayer_Task(void *parameter) {
                 }
             }
             gPlayProperties.seekmode = SEEK_NORMAL;
+        }
+
+        // Handle IP-announcement
+        if (gPlayProperties.tellIpAddress) {
+            gPlayProperties.tellIpAddress = false;
+            char ipBuf[16];
+            Wlan_GetIpAddress().toCharArray(ipBuf, sizeof(ipBuf));
+            bool speechOk;
+            #if (LANGUAGE == DE)
+                speechOk = audio->connecttospeech(ipBuf, "de");
+            #else
+                speechOk = audio->connecttospeech(ipBuf, "en");
+            #endif
+            if (!speechOk) {
+                System_IndicateError();
+            }
+        }
+
+        // If speech is over, go back to predefined state
+        if (!gPlayProperties.currentSpeechActive && gPlayProperties.lastSpeechActive) {
+            gPlayProperties.lastSpeechActive = false;
+            if (gPlayProperties.playMode != NO_PLAYLIST) {
+                xQueueSend(gRfidCardQueue, gPlayProperties.playRfidTag, 0);     // Re-inject previous RFID-ID in order to continue playback
+            }
         }
 
         // Handle if mono/stereo should be changed (e.g. if plugging headphones)
@@ -1038,6 +1099,16 @@ void audio_info(const char *info) {
 void audio_id3data(const char *info) { //id3 metadata
     snprintf(Log_Buffer, Log_BufferLength, "id3data     : %s", info);
     Log_Println(Log_Buffer, LOGLEVEL_INFO);
+    // get title
+    if (startsWith((char *)info, "Title:")) {
+        // copy title
+        if (!gPlayProperties.title) {
+            gPlayProperties.title = (char *) x_malloc(sizeof(char) * 255);
+        }  
+        strncpy(gPlayProperties.title, info + 6, 255);
+        // notify web ui
+        Web_SendWebsocketData(0, 30);
+    }    
 }
 
 void audio_eof_mp3(const char *info) { //end of file
@@ -1054,12 +1125,28 @@ void audio_showstation(const char *info) {
     #ifdef MQTT_ENABLE
         publishMqtt((char *) FPSTR(topicTrackState), buf, false);
     #endif
+    // copy title
+    if (!gPlayProperties.title) {
+        gPlayProperties.title = (char *) x_malloc(sizeof(char) * 255);
+    };
+    strncpy(gPlayProperties.title, info + 6, 255);
+    // notify web ui
+    Web_SendWebsocketData(0, 30);
 }
 
 void audio_showstreamtitle(const char *info)
 {
     snprintf(Log_Buffer, Log_BufferLength, "streamtitle : %s", info);
     Log_Println(Log_Buffer, LOGLEVEL_INFO);
+    if (startsWith((char *)info, "Title:")) {
+        // copy title
+        if (!gPlayProperties.title) {
+            gPlayProperties.title = (char *) x_malloc(sizeof(char) * 255);
+        };
+        strncpy(gPlayProperties.title, info + 6, 255);
+        // notify web ui
+        Web_SendWebsocketData(0, 30);
+    };
 }
 
 void audio_bitrate(const char *info) {
@@ -1080,4 +1167,18 @@ void audio_icyurl(const char *info) { //homepage
 void audio_lasthost(const char *info) { //stream URL played
     snprintf(Log_Buffer, Log_BufferLength, "lasthost    : %s", info);
     Log_Println(Log_Buffer, LOGLEVEL_INFO);
+}
+
+// id3 tag: save cover image
+void audio_id3image(File& file, const size_t pos, const size_t size) { 
+    // save cover image file and position/size for later use
+    gPlayProperties.coverFileName = (char *)(file.name()); 
+    gPlayProperties.coverFilePos = pos;                         
+    gPlayProperties.coverFileSize = size;
+    // websocket notify cover image has changed
+    Web_SendWebsocketData(0, 40);
+}
+
+void audio_eof_speech(const char *info){
+    gPlayProperties.currentSpeechActive = false;
 }

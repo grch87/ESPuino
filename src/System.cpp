@@ -35,8 +35,11 @@ void System_DeepSleepManager(void);
 
 void System_Init(void) {
     srand(esp_random());
-    pinMode(POWER, OUTPUT);
-    digitalWrite(POWER, HIGH);
+    #if (POWER >= 0 && POWER <= 39)
+        pinMode(POWER, OUTPUT);
+        //delay(50);     // Makes booting Wemos Lolin D32 pro a bit faster if headphone-PCB is connected (for whatever reason)
+        digitalWrite(POWER, HIGH);
+    #endif
 
     gPrefsRfid.begin((char *) FPSTR(prefsRfidNamespace));
     gPrefsSettings.begin((char *) FPSTR(prefsSettingsNamespace));
@@ -88,7 +91,16 @@ bool System_SetSleepTimer(uint8_t minutes) {
         sleepTimerEnabled = true;
 
         Led_ResetToNightBrightness();
-        Log_Println((char *) FPSTR(modificatorSleepTimer60), LOGLEVEL_NOTICE);
+        if (minutes == 15) {
+            Log_Println((char *)FPSTR(modificatorSleepTimer15), LOGLEVEL_NOTICE);
+        } else if (minutes == 30) {
+            Log_Println((char *)FPSTR(modificatorSleepTimer30), LOGLEVEL_NOTICE);
+        } else if (minutes == 60) {
+            Log_Println((char *)FPSTR(modificatorSleepTimer60), LOGLEVEL_NOTICE);
+        } else {
+            Log_Println((char *)FPSTR(modificatorSleepTimer120), LOGLEVEL_NOTICE);
+        }
+
         #ifdef MQTT_ENABLE
             publishMqtt((char *) FPSTR(topicSleepTimerState), System_SleepTimer, false);
             publishMqtt((char *) FPSTR(topicLedBrightnessState), Led_GetBrightness(), false);
@@ -100,10 +112,11 @@ bool System_SetSleepTimer(uint8_t minutes) {
 
 void System_DisableSleepTimer(void) {
     System_SleepTimerStartTimestamp = 0u;
+    Led_ResetToInitialBrightness();
 }
 
 bool System_IsSleepTimerEnabled(void) {
-    return (System_SleepTimerStartTimestamp > 0u);
+    return (System_SleepTimerStartTimestamp > 0u || gPlayProperties.sleepAfterCurrentTrack || gPlayProperties.sleepAfterPlaylist || gPlayProperties.playUntilTrackNumber);
 }
 
 uint32_t System_GetSleepTimerTimeStamp(void) {

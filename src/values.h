@@ -45,6 +45,7 @@
     #define CMD_TOGGLE_WIFI_STATUS          130         // Toggles WiFi-status
     #define CMD_TOGGLE_BLUETOOTH_MODE       140         // Toggles Normal/Bluetooth Mode
     #define CMD_ENABLE_FTP_SERVER           150         // Enables FTP-server
+    #define CMD_TELL_IP_ADDRESS             151         // Command: ESPuino announces its IP-address via speech
 
     #define CMD_PLAYPAUSE                   170         // Command: play/pause
     #define CMD_PREVTRACK                   171         // Command: previous track
@@ -56,8 +57,8 @@
     #define CMD_VOLUMEDOWN                  177         // Command: lower volume by 1
     #define CMD_MEASUREBATTERY              178         // Command: Measure battery-voltage
     #define CMD_SLEEPMODE                   179         // Command: Go to deepsleep
-    #define CMD_SEEK_FORWARDS               180         // Command: fast forward => don't use, has no effect currently!
-    #define CMD_SEEK_BACKWARDS              181         // Command: wind back => don't use, has no effect currently!
+    #define CMD_SEEK_FORWARDS               180         // Command: jump forwards (time period to jump (in seconds) is configured via settings.h: jumpOffset)
+    #define CMD_SEEK_BACKWARDS              181         // Command: jump backwards (time period to jump (in seconds) is configured via settings.h: jumpOffset)
 
     // Repeat-Modes
     #define NO_REPEAT                       0           // No repeat

@@ -51,6 +51,7 @@
     const char trackChangeWebstream[] PROGMEM = "Playing from the very beginning is not possible while webradio-mode is active.";
     const char endOfPlaylistReached[] PROGMEM = "Reached end of playlist.";
     const char trackStartatPos[] PROGMEM = "Starting track at position";
+    const char waitingForTaskQueues[] PROGMEM = "Task Queue for RFID does not exist yet, waiting...";
     const char rfidScannerReady[] PROGMEM = "RFID-tags can now be applied...";
     const char rfidTagDetected[] PROGMEM = "RFID-tag detected: ";
     const char rfid15693TagDetected[] PROGMEM = "RFID-ta (ISO-15693) detected: ";
@@ -87,6 +88,7 @@
     const char modificatorSleepTimer60[] PROGMEM = "Modificator: sleep-Timer enabled via RFID (60 minutes).";
     const char modificatorSleepTimer120[] PROGMEM = "Modificator: sleep-Timer enabled via RFID (2 hours).";
     const char ledsDimmedToNightmode[] PROGMEM = "Dimmed LEDs to nightmode.";
+    const char ledsDimmedToInitialValue[] PROGMEM = "Dimmed LEDs to initial value.";
     const char modificatorNotallowedWhenIdle[] PROGMEM = "Modificator cannot be applied while playlist is inactive.";
     const char modificatorSleepAtEOT[] PROGMEM = "Modificator: adjusted sleep-timer to after end of current track.";
     const char modificatorSleepAtEOTd[] PROGMEM = "Modificator: disabled sleep-timer after end of current track.";
@@ -183,7 +185,8 @@
     const char wakeUpRfidNoIso14443[] PROGMEM = "Wakeup caused by low power card-detection. RF-field changed but no ISO-14443 card on reader was found. So I'll return back to sleep now...";
     const char lowPowerCardSuccess[] PROGMEM = "Switch to low power card-detection: success";
     const char rememberLastVolume[] PROGMEM = "Restored volume used before last shutdown. This overwrites the initial volume configured via webgui.";
-    const char unableToStartFtpServer[] PROGMEM = "FTP-server cannot be started. This is because FTP-service is already active of because WiFi is unavailable.";
+    const char unableToStartFtpServer[] PROGMEM = "FTP-server cannot be started. This is because FTP-service is already active or because WiFi is unavailable.";
+    const char unableToTellIpAddress[] PROGMEM = "IP-address can't be announced as there's no WiFi-connection available.";
     const char newPlayModeStereo[] PROGMEM = "New mode: stereo";
     const char newPlayModeMono[] PROGMEM = "New mode: mono";
     const char portExpanderFound[] PROGMEM = "Port-expander found";
@@ -208,5 +211,6 @@
     const char noPlaylist[] PROGMEM = "No active playlist.";
     const char rfidTagRemoved[] PROGMEM = "RFID-tag removed";
     const char rfidTagReapplied[] PROGMEM = "RFID-tag reapplied";
+    const char ftpEnableTooLate[] PROGMEM = "FTP can only be enabled within the first 30s after ESPuino-start. Child-protection :-)";
 
 #endif

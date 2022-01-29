@@ -3,6 +3,7 @@
 typedef struct { // Bit field
     uint8_t playMode:                   4;      // playMode
     char **playlist;                            // playlist
+    char *title;                                // current title
     bool repeatCurrentTrack:            1;      // If current track should be looped
     bool repeatPlaylist:                1;      // If whole playlist should be looped
     uint16_t currentTrackNumber:        9;      // Current tracknumber
@@ -21,6 +22,12 @@ typedef struct { // Bit field
     bool newPlayMono:                   1;      // true if mono; false if stereo (helper)
     bool currentPlayMono:               1;      // true if mono; false if stereo
     bool isWebstream:                   1;      // Indicates if track currenty played is a webstream
+    bool tellIpAddress:                 1;      // If true current IP-address is spoken
+    bool currentSpeechActive:           1;      // If speech-play is active
+    bool lastSpeechActive:              1;      // If speech-play was active
+    char *coverFileName;                        // current coverfile
+    size_t coverFilePos;                        // current cover file position
+    size_t coverFileSize;                       // current cover file size
 } playProps;
 
 extern playProps gPlayProperties;

@@ -4,10 +4,10 @@
 
     //######################### INFOS ####################################
     /* This is a PCB-specific config-file for *AZ Delivery ESP32 NodeMCU/Devkit C with SD_MMC and PN5180*.
-    PCB: t.b.a.
+    PCB: https://github.com/biologist79/ESPuino/blob/master/PCBs/AZDelivery_ESP32_NodeMCU/gerber/gerber_rev2.zip
     Forum: https://forum.espuino.de/t/az-delivery-esp32-nodemcu-devkit-c-mit-sd-mmc-und-pn5180-als-rfid-leser/634
     Infos: https://www.amazon.de/AZDelivery-NodeMCU-Development-Nachfolgermodell-ESP8266/dp/B074RGW2VQ
-    Schematics PCB: t.b.a.
+    Schematics PCB: https://github.com/biologist79/ESPuino/blob/master/PCBs/AZDelivery_ESP32_NodeMCU/pictures/Schematics_rev2.pdf
     Caveats: Battery-monitoring is not available and SD ist SD_MMC only
     Status:
         tested with PN5180 + SD_MMC (by biologist79)
@@ -21,11 +21,17 @@
         // uSD-card-reader (via SD-MMC 1Bit)
         //
         // SD_MMC uses fixed pins
-        //  MOSI    15
-        //  SCK     14
-        //  MISO    2
+        //  (MOSI)    15  CMD
+        //  (SCK)     14  SCK
+        //  (MISO)     2  D0
     #else
-        // uSD-card-reader (via SPI) is not supported by this board!
+        // SPI-SD IS NOT SUPPORTED BY THIS PCB - DON'T USE INTERNAL SD-READER!
+        #define SPISD_CS                    99          // GPIO for chip select (SD)
+        #ifndef SINGLE_SPI_ENABLE
+            #define SPISD_MOSI              99          // GPIO for master out slave in (SD) => not necessary for single-SPI
+            #define SPISD_MISO              99          // GPIO for master in slave ou (SD) => not necessary for single-SPI
+            #define SPISD_SCK               99          // GPIO for clock-signal (SD) => not necessary for single-SPI
+        #endif
     #endif
 
     // RFID (via SPI)
@@ -47,7 +53,8 @@
 
     // Rotary encoder
     #ifdef USEROTARY_ENABLE
-        #define ROTARYENCODER_CLK           34          // If you want to reverse encoder's direction, just switch GPIOs of CLK with DT (in software or hardware)
+        //#define REVERSE_ROTARY                        // To reverse encoder's direction; switching CLK / DT in hardware does the same
+        #define ROTARYENCODER_CLK           34          // rotary encoder's CLK
         #define ROTARYENCODER_DT            35          // (set to 99 to disable; 0->39 for GPIO)
         #define ROTARYENCODER_BUTTON        32          // (set to 99 to disable; 0->39 for GPIO; 100->115 for port-expander)
     #endif
@@ -57,7 +64,7 @@
     //#define GPIO_HP_EN                      113         // To enable amp for headphones (GPIO or port-channel)
 
     // Control-buttons (set to 99 to DISABLE; 0->39 for GPIO; 100->115 for port-expander)
-    #define NEXT_BUTTON                      4          // Button 0: GPIO to detect next
+    #define NEXT_BUTTON                     13          // Button 0: GPIO to detect next
     #define PREVIOUS_BUTTON                 39          // Button 1: GPIO to detect previous
     #define PAUSEPLAY_BUTTON                 5          // Button 2: GPIO to detect pause/play
     #define BUTTON_4                        99          // Button 4: unnamed optional button
@@ -87,12 +94,14 @@
     // (optinal) Headphone-detection
     #ifdef HEADPHONE_ADJUST_ENABLE
         //#define DETECT_HP_ON_HIGH                       // Per default headphones are supposed to be connected if HT_DETECT is LOW. DETECT_HP_ON_HIGH will change this behaviour to HIGH.
-        #define HP_DETECT                   13          // GPIO that detects, if there's a plug in the headphone jack or not
+        #define HP_DETECT                    4          // GPIO that detects, if there's a plug in the headphone jack or not
     #endif
 
     // (optional) Monitoring of battery-voltage via ADC
     #ifdef MEASURE_BATTERY_VOLTAGE
-        // not supported
+        #define VOLTAGE_READ_PIN            99          // GPIO used to monitor battery-voltage.
+        constexpr float referenceVoltage = 3.3;         // Voltage between 3.3V and GND-pin in battery-mode (disconnect USB!)
+        constexpr float offsetVoltage = 0.0;            // If voltage measured by ESP isn't 100% accurate, you can add an correction-value here
     #endif
 
     // (Optional) remote control via infrared

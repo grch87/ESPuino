@@ -51,6 +51,7 @@
     const char trackChangeWebstream[] PROGMEM = "Im Webradio-Modus kann nicht an den Anfang gesprungen werden.";
     const char endOfPlaylistReached[] PROGMEM = "Ende der Playlist erreicht.";
     const char trackStartatPos[] PROGMEM = "Titel wird abgespielt ab Position";
+    const char waitingForTaskQueues[] PROGMEM = "Task Queue für RFID existiert noch nicht, warte...";
     const char rfidScannerReady[] PROGMEM = "RFID-Tags koennen jetzt gescannt werden...";
     const char rfidTagDetected[] PROGMEM = "RFID-Karte erkannt: ";
     const char rfid15693TagDetected[] PROGMEM = "RFID-Karte (ISO-15693) erkannt: ";
@@ -87,6 +88,7 @@
     const char modificatorSleepTimer60[] PROGMEM = "Modifikator: Sleep-Timer per RFID aktiviert (60 Minuten).";
     const char modificatorSleepTimer120[] PROGMEM = "Modifikator: Sleep-Timer per RFID aktiviert (2 Stunden).";
     const char ledsDimmedToNightmode[] PROGMEM = "LEDs wurden auf Nachtmodus gedimmt.";
+    const char ledsDimmedToInitialValue[] PROGMEM = "LEDs wurden auf initiale Helligkeit gedimmt.";
     const char modificatorNotallowedWhenIdle[] PROGMEM = "Modifikator kann bei nicht aktivierter Playlist nicht angewendet werden.";
     const char modificatorSleepAtEOT[] PROGMEM = "Modifikator: Sleep-Timer am Ende des Titels aktiviert.";
     const char modificatorSleepAtEOTd[] PROGMEM = "Modifikator: Sleep-Timer am Ende des Titels deaktiviert.";
@@ -184,6 +186,7 @@
     const char lowPowerCardSuccess[] PROGMEM = "Kartenerkennung via 'low power' erfolgreich durchgeführt";
     const char rememberLastVolume[] PROGMEM = "Lautstärke vor dem letzten Shutdown wird wiederhergestellt. Dies überschreibt die Einstellung der initialen Lautstärke aus der GUI.";
     const char unableToStartFtpServer[] PROGMEM = "Der FTP-Server konnte nicht gestartet werden. Entweder weil er ist bereits gestartet oder kein WLAN verfügbar ist.";
+    const char unableToTellIpAddress[] PROGMEM = "IP-Adresse kann nicht angesagt werden, da keine WLAN-Verbindung besteht.";
     const char newPlayModeStereo[] PROGMEM = "Neuer Modus: stereo";
     const char newPlayModeMono[] PROGMEM = "Neuer Modus: mono";
     const char portExpanderFound[] PROGMEM = "Port-expander gefunden";
@@ -208,4 +211,5 @@
     const char noPlaylist[] PROGMEM = "Keine Playlist aktiv.";
     const char rfidTagRemoved[] PROGMEM = "RFID-Karte wurde entfernt";
     const char rfidTagReapplied[] PROGMEM = "RFID-Karte erneut aufgelegt";
+    const char ftpEnableTooLate[] PROGMEM = "FTP kann nur innerhalb der ersten 30s aktiviert werden. Kinderschutz :-)";
 #endif

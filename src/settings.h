@@ -2,7 +2,9 @@
 #define __ESPUINO_SETTINGS_H__
     #include "Arduino.h"
     #include "values.h"
-
+#if __has_include("settings-override.h")
+#include "settings-override.h"
+#else
     //######################### INFOS ####################################
     // This is the general configfile for ESPuino-configuration.
 
@@ -35,7 +37,7 @@
     //#define NEOPIXEL_REVERSE_ROTATION     // Some Neopixels are adressed/soldered counter-clockwise. This can be configured here.
     #define LANGUAGE DE                     // DE = deutsch; EN = english
     //#define STATIC_IP_ENABLE              // Enables static IP-configuration (change static ip-section accordingly)
-    //#define HEADPHONE_ADJUST_ENABLE       // Used to adjust (lower) volume for optional headphone-pcb (refer maxVolumeSpeaker / maxVolumeHeadphone) and to enable stereo (if PLAY_MONO_SPEAKER is set)
+    #define HEADPHONE_ADJUST_ENABLE       // Used to adjust (lower) volume for optional headphone-pcb (refer maxVolumeSpeaker / maxVolumeHeadphone) and to enable stereo (if PLAY_MONO_SPEAKER is set)
     #define PLAY_MONO_SPEAKER               // If only one speaker is used enabling mono should make sense. Please note: headphones is always stereo (if HEADPHONE_ADJUST_ENABLE is active)
     #define SHUTDOWN_IF_SD_BOOT_FAILS       // Will put ESP to deepsleep if boot fails due to SD. Really recommend this if there's in battery-mode no other way to restart ESP! Interval adjustable via deepsleepTimeAfterBootFails.
     #define MEASURE_BATTERY_VOLTAGE         // Enables battery-measurement via GPIO (ADC) and voltage-divider
@@ -110,8 +112,8 @@
     #define BUTTON_1_SHORT    CMD_PREVTRACK
     #define BUTTON_2_SHORT    CMD_PLAYPAUSE
     #define BUTTON_3_SHORT    CMD_MEASUREBATTERY
-    #define BUTTON_4_SHORT    CMD_NOTHING
-    #define BUTTON_5_SHORT    CMD_NOTHING
+    #define BUTTON_4_SHORT    CMD_SEEK_BACKWARDS
+    #define BUTTON_5_SHORT    CMD_SEEK_FORWARDS
 
     #define BUTTON_0_LONG     CMD_SEEK_FORWARDS
     #define BUTTON_1_LONG     CMD_SEEK_BACKWARDS
@@ -120,12 +122,12 @@
     #define BUTTON_4_LONG     CMD_NOTHING
     #define BUTTON_5_LONG     CMD_NOTHING
 
-    #define BUTTON_MULTI_01   CMD_TOGGLE_WIFI_STATUS
+    #define BUTTON_MULTI_01   CMD_NOTHING   //CMD_TOGGLE_WIFI_STATUS (disabled now to prevent children from unwanted WiFi-disable)
     #define BUTTON_MULTI_02   CMD_ENABLE_FTP_SERVER
     #define BUTTON_MULTI_03   CMD_NOTHING
     #define BUTTON_MULTI_04   CMD_NOTHING
     #define BUTTON_MULTI_05   CMD_NOTHING
-    #define BUTTON_MULTI_12   CMD_NOTHING
+    #define BUTTON_MULTI_12   CMD_TELL_IP_ADDRESS
     #define BUTTON_MULTI_13   CMD_NOTHING
     #define BUTTON_MULTI_14   CMD_NOTHING
     #define BUTTON_MULTI_15   CMD_NOTHING
@@ -247,5 +249,5 @@
     #endif
 
     //#define ENABLE_ESPUINO_DEBUG                            // Needs modification of platformio.ini (https://forum.espuino.de/t/rfid-mit-oder-ohne-task/353/21); better don't enable unless you know what you're doing :-)
-
+#endif //settings_override
 #endif
