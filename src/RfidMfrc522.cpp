@@ -176,6 +176,9 @@
     }
 
     void Rfid_Exit(void) {
+		#ifndef RFID_READER_TYPE_MFRC522_I2C
+	    	mfrc522.PCD_SoftPowerDown();
+		#endif
     }
 
     void Rfid_WakeupCheck(void) {

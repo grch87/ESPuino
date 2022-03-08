@@ -14,13 +14,8 @@
 
 
     //################## GPIO-configuration ##############################
-    // uSD-card-reader (via SPI - better use SD_MMC instead!)
-    #define SPISD_CS                        13          // GPIO for chip select (SD)
-    #ifndef SINGLE_SPI_ENABLE
-        #define SPISD_MOSI                  15          // GPIO for master out slave in (SD) => not necessary for single-SPI
-        #define SPISD_MISO                   2          // GPIO for master in slave ou (SD) => not necessary for single-SPI
-        #define SPISD_SCK                   14          // GPIO for clock-signal (SD) => not necessary for single-SPI
-    #endif
+    // SD
+    // Make sure to enable SD_MMC_1BIT_MODE! GPIOs 2, 14, 15 are used therefore. Make sure to not assign them elsewhere!
 
     // RFID (via SPI; currently not supported!)
     #if defined(RFID_READER_TYPE_MFRC522_SPI)
@@ -37,7 +32,7 @@
     #endif
 
     // I2C-configuration (necessary for RC522 [only via i2c - not spi!] or port-expander)
-    #if defined(RFID_READER_TYPE_MFRC522_I2C) || defined(PORT_EXPANDER_ENABLE)
+    #ifdef I2C_2_ENABLE
         #define ext_IIC_CLK                 23          // i2c-SCL (clock) [14 pin-header]
         #define ext_IIC_DATA                18          // i2c-SDA (data) [14 pin-header]
     #endif
@@ -59,13 +54,13 @@
         //#define REVERSE_ROTARY                        // To reverse encoder's direction; switching CLK / DT in hardware does the same
         #define ROTARYENCODER_CLK           5           // rotary encoder's CLK
         #define ROTARYENCODER_DT            18          // Info: Lolin D32 / Lolin D32 pro 35 are using 35 for battery-voltage-monitoring!
-        #define ROTARYENCODER_BUTTON         4          // (set to 99 to disable; 0->39 for GPIO; 100->115 for port-expander)
     #endif
 
     // Control-buttons (set to 99 to DISABLE; 0->39 for GPIO; 100->115 for port-expander)
     #define NEXT_BUTTON                     99          // Button 0: GPIO to detect next
     #define PREVIOUS_BUTTON                 99          // Button 1: GPIO to detect previous
     #define PAUSEPLAY_BUTTON                36          // Button 2: GPIO to detect pause/play
+    #define ROTARYENCODER_BUTTON            99          // (set to 99 to disable; 0->39 for GPIO; 100->115 for port-expander)
     #define BUTTON_4                        99          // Button 4: unnamed optional button
     #define BUTTON_5                        99          // Button 5: unnamed optional button
 
@@ -82,6 +77,9 @@
 
     // Power-control
     #define POWER                           19          // GPIO used to drive transistor-circuit, that switches off peripheral devices while ESP32-deepsleep
+    #ifdef POWER
+        //#define INVERT_POWER                          // If enabled, use inverted logic for POWER circuit, that means peripherals are turned off by writing HIGH
+    #endif
 
     // (optional) Neopixel
     #if defined(NEOPIXEL_ENABLE)

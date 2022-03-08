@@ -12,6 +12,7 @@
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "Audio.h"
+#include "Power.h"
 
 constexpr const char prefsRfidNamespace[] PROGMEM = "rfidTags";     // Namespace used to save IDs of rfid-tags
 constexpr const char prefsSettingsNamespace[] PROGMEM = "settings"; // Namespace used for generic settings
@@ -35,11 +36,6 @@ void System_DeepSleepManager(void);
 
 void System_Init(void) {
     srand(esp_random());
-    #if (POWER >= 0 && POWER <= 39)
-        pinMode(POWER, OUTPUT);
-        //delay(50);     // Makes booting Wemos Lolin D32 pro a bit faster if headphone-PCB is connected (for whatever reason)
-        digitalWrite(POWER, HIGH);
-    #endif
 
     gPrefsRfid.begin((char *) FPSTR(prefsRfidNamespace));
     gPrefsSettings.begin((char *) FPSTR(prefsSettingsNamespace));
@@ -219,10 +215,10 @@ void System_DeepSleepManager(void) {
 
         // Disable amps in order to avoid ugly noises when powering off
         #ifdef GPIO_PA_EN
-            Port_Write(GPIO_PA_EN, false);
+            Port_Write(GPIO_PA_EN, false, false);
         #endif
         #ifdef GPIO_HP_EN
-            Port_Write(GPIO_HP_EN, false);
+            Port_Write(GPIO_HP_EN, false, false);
         #endif
 
         Mqtt_Exit();
@@ -235,9 +231,11 @@ void System_DeepSleepManager(void) {
 
         Serial.flush();
         // switch off power
-        digitalWrite(POWER, LOW);
+        Power_PeripheralOff();
         delay(200);
-        Rfid_Exit();
+        #if defined (RFID_READER_TYPE_MFRC522_SPI) || defined (RFID_READER_TYPE_MFRC522_I2C) || defined(RFID_READER_TYPE_PN5180)
+            Rfid_Exit();
+        #endif
         #ifdef PORT_EXPANDER_ENABLE
             Port_Exit();
         #endif
@@ -255,6 +253,33 @@ void System_ShowUpgradeWarning(void) {
     } else if (nvsShowUpgradeWarningCount < 5) {
         gPrefsSettings.putUInt("wcountrefact", ++nvsShowUpgradeWarningCount);
         Log_Println((char *) FPSTR(warningRefactoring), LOGLEVEL_ERROR);
+    }
+}
+
+// Print the wake-up reason why ESP32 is awake now
+void System_ShowWakeUpReason() {
+    esp_sleep_wakeup_cause_t wakeup_reason;
+    wakeup_reason = esp_sleep_get_wakeup_cause();
+
+    switch (wakeup_reason) {
+        case ESP_SLEEP_WAKEUP_EXT0:
+            Serial.println(F("Wakeup caused by push button"));
+            break;
+        case ESP_SLEEP_WAKEUP_EXT1:
+            Serial.println(F("Wakeup caused by low power card detection"));
+            break;
+        case ESP_SLEEP_WAKEUP_TIMER:
+            Serial.println(F("Wakeup caused by timer"));
+            break;
+        case ESP_SLEEP_WAKEUP_TOUCHPAD:
+            Serial.println(F("Wakeup caused by touchpad"));
+            break;
+        case ESP_SLEEP_WAKEUP_ULP:
+            Serial.println(F("Wakeup caused by ULP program"));
+            break;
+        default:
+            Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
+            break;
     }
 }
 

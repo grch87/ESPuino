@@ -35,22 +35,13 @@ void Port_Init(void) {
     #ifdef PORT_EXPANDER_ENABLE
         Port_Test();
         Port_WriteInitMaskForOutputChannels();
+        Port_ExpanderHandler();
     #endif
 
     #ifdef PE_INTERRUPT_PIN_ENABLE
         pinMode(PE_INTERRUPT_PIN, INPUT_PULLUP);
         attachInterrupt(PE_INTERRUPT_PIN, PORT_ExpanderISR, FALLING);
         Log_Println(portExpanderInterruptEnabled, LOGLEVEL_NOTICE);
-    #endif
-
-    // If automatic HP-detection is not used...
-    #ifndef HEADPHONE_ADJUST_ENABLE
-        #ifdef GPIO_PA_EN
-            Port_Write(GPIO_PA_EN, true, true);       // ...but it's necessary to enable loudspeaker amp...
-        #endif
-        #ifdef GPIO_HP_EN
-            Port_Write(GPIO_HP_EN, true, true);      // ...or headphones-amp
-        #endif
     #endif
 }
 
@@ -81,37 +72,36 @@ bool Port_Read(const uint8_t _channel) {
     }
 }
 
-// Wrapper-function to reverse detection of connected headphones.
-// Normally headphones are supposed to be plugged in if a given GPIO/channel is LOW/false.
-bool Port_Detect_Mode_HP(bool _state) {
-    #ifndef DETECT_HP_ON_HIGH
-        return _state;
-    #else
-        return !_state;
-    #endif
-}
-
 // Configures OUTPUT-mode for GPIOs (non port-expander)
 // Output-mode for port-channels is done via Port_WriteInitMaskForOutputChannels()
 void Port_Write(const uint8_t _channel, const bool _newState, const bool _initGpio) {
-    if (_initGpio) {
-        switch (_channel) {
-            case 0 ... 39: { // GPIO
-                pinMode(_channel, OUTPUT);
-                Port_Write(_channel, _newState);
-                break;
-            }
-
-            default: {
-                Port_Write(_channel, _newState);
-                break;
+    #ifdef GPIO_PA_EN
+        if (_channel == GPIO_PA_EN) {
+            if (_newState) {
+                Log_Println((char *) FPSTR(paOn), LOGLEVEL_NOTICE);
+            } else {
+                Log_Println((char *) FPSTR(paOff), LOGLEVEL_NOTICE);
             }
         }
-    }
-}
+    #endif
 
-// Wrapper: writes to GPIOs (via digitalWrite()) or to port-expander (if enabled)
-void Port_Write(const uint8_t _channel, const bool _newState) {
+    #ifdef GPIO_HP_EN
+        if (_channel == GPIO_HP_EN) {
+            if (_newState) {
+                Log_Println((char *) FPSTR(hpOn), LOGLEVEL_NOTICE);
+            } else {
+                Log_Println((char *) FPSTR(hpOff), LOGLEVEL_NOTICE);
+            }
+        }
+    #endif
+    
+    // Make init only for GPIO but not for PE (because PE is already done earlier)
+    if (_initGpio) {
+        if (_channel >= 0 && _channel <= 39) {
+            pinMode(_channel, OUTPUT);
+        }
+    }
+
     switch (_channel) {
         case 0 ... 39: { // GPIO
             digitalWrite(_channel, _newState);
@@ -198,44 +188,50 @@ void Port_Write(const uint8_t _channel, const bool _newState) {
     void Port_WriteInitMaskForOutputChannels(void) {
         const uint8_t portBaseValueBitMask = 255;
         const uint8_t portsToWrite = 2;
-        uint8_t OutputBitMaskAsPerPort[portsToWrite] = { portBaseValueBitMask, portBaseValueBitMask };   // 255 => all channels set to input; [0]: port0, [1]: port1
+        uint8_t OutputBitMaskInOutAsPerPort[portsToWrite] = { portBaseValueBitMask, portBaseValueBitMask };   // 255 => all channels set to input; [0]: port0, [1]: port1
+        uint8_t OutputBitMaskLowHighAsPerPort[portsToWrite] = { 0x00, 0x00};     // Bit configured as 0 for an output-channels means: logic LOW
 
-        #ifdef GPIO_PA_EN
+        #ifdef GPIO_PA_EN   // Set as output to enable/disable amp for loudspeaker
             if (GPIO_PA_EN >= 100 && GPIO_PA_EN <= 107) {
                 // Bits of channels to be configured as input are 1 by default.
                 // So in order to change I/O-direction to output we need to set those bits to 0.
-                OutputBitMaskAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
-                //Serial.printf("PA LO: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
             } else if (GPIO_PA_EN >= 108 && GPIO_PA_EN <= 115) {
-                OutputBitMaskAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
-                //Serial.printf("PA HI: %u\n", OutputBitMaskAsPerPort[1]);
+                OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
             }
         #endif
 
-        #ifdef GPIO_HP_EN
+        #ifdef GPIO_HP_EN   // Set as output to enable/disable amp for headphones
             if (GPIO_HP_EN >= 100 && GPIO_HP_EN <= 107) {
-                OutputBitMaskAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
-                //Serial.printf("HP LO: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
             } else if (GPIO_HP_EN >= 108 && GPIO_HP_EN <= 115) {
-                OutputBitMaskAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
-                //Serial.printf("HP HI: %u\n", OutputBitMaskAsPerPort[1]);
+                OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
+            }
+        #endif
+
+        #ifdef POWER    // Set as output to trigger mosfet/power-pin for powering peripherals. Hint: logic is inverted if INVERT_POWER is enabled.
+            if (POWER >= 100 && POWER <= 107) {
+                OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(POWER));
+            } else if (POWER >= 108 && POWER <= 115) {
+                OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(POWER));
             }
         #endif
 
         // Only change port-config if necessary (at least bitmask changed from base-default for one port)
-        if ((OutputBitMaskAsPerPort[0] != portBaseValueBitMask) || (OutputBitMaskAsPerPort[1] != portBaseValueBitMask)) {
+        if ((OutputBitMaskInOutAsPerPort[0] != portBaseValueBitMask) || (OutputBitMaskInOutAsPerPort[1] != portBaseValueBitMask)) {
             i2cBusTwo.beginTransmission(expanderI2cAddress);
-            i2cBusTwo.write(0x06);
+            i2cBusTwo.write(0x06);  // Pointer to configuration of input/output
             for (uint8_t i=0; i<portsToWrite; i++) {
-                i2cBusTwo.write(OutputBitMaskAsPerPort[i]);
-                //Serial.printf("Register %u - Mask: %u\n", 0x06+i, OutputBitMaskAsPerPort[i]);
+                i2cBusTwo.write(OutputBitMaskInOutAsPerPort[i]);
+                //Serial.printf("Register %u - Mask: %u\n", 0x06+i, OutputBitMaskInOutAsPerPort[i]);
             }
             i2cBusTwo.endTransmission();
 
+            // Write low/high-config to all output-channels. Channels that are configured as input are silently/automatically ignored by PCA9555
             i2cBusTwo.beginTransmission(expanderI2cAddress);
-            i2cBusTwo.write(0x02);  // Pointer to configuration of output-channels
-            i2cBusTwo.write(0x00);  // Set all output-channels (port0) to low as per default (channels configured as input aren't affected by this)
-            i2cBusTwo.write(0x00);  // Set all output-channels (port1) to low as per default (channels configured as input aren't affected by this)
+            i2cBusTwo.write(0x02);  // Pointer to configuration of output-channels (high/low)
+            i2cBusTwo.write(OutputBitMaskLowHighAsPerPort[0]);  // port0
+            i2cBusTwo.write(OutputBitMaskLowHighAsPerPort[1]);  // port1
             i2cBusTwo.endTransmission();
         }
     }
@@ -244,53 +240,64 @@ void Port_Write(const uint8_t _channel, const bool _newState) {
     void Port_MakeSomeChannelsOutputForShutdown(void) {
         const uint8_t portBaseValueBitMask = 255;
         const uint8_t portsToWrite = 2;
-        uint8_t OutputBitMaskAsPerPort[portsToWrite] = { portBaseValueBitMask, portBaseValueBitMask };   // 255 => all channels set to input; [0]: port0, [1]: port1
+        uint8_t OutputBitMaskInOutAsPerPort[portsToWrite] = { portBaseValueBitMask, portBaseValueBitMask };   // 255 => all channels set to input; [0]: port0, [1]: port1
+        uint8_t OutputBitMaskLowHighAsPerPort[portsToWrite] = { 0x00, 0x00};
 
         #ifdef HP_DETECT    // https://forum.espuino.de/t/lolin-d32-pro-mit-sd-mmc-pn5180-max-fuenf-buttons-und-port-expander-smd/638/33
             if (HP_DETECT >= 100 && HP_DETECT <= 107) {
-                OutputBitMaskAsPerPort[0] &= ~(1 << Port_ChannelToBit(HP_DETECT));
-                Serial.printf("HPD LO: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(HP_DETECT));
             } else if (HP_DETECT >= 108 && HP_DETECT <= 115) {
-                OutputBitMaskAsPerPort[1] &= ~(1 << Port_ChannelToBit(HP_DETECT));
-                Serial.printf("HPD HI: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(HP_DETECT));
             }
         #endif
 
         // There's no possibility to get current I/O-status from PCA9555. So we just re-set it again for OUTPUT-pins.
         #ifdef GPIO_PA_EN
             if (GPIO_PA_EN >= 100 && GPIO_PA_EN <= 107) {
-                OutputBitMaskAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
-                Serial.printf("PA LO: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
             } else if (GPIO_PA_EN >= 108 && GPIO_PA_EN <= 115) {
-                OutputBitMaskAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
-                Serial.printf("PA HI: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_PA_EN));
             }
         #endif
 
         #ifdef GPIO_HP_EN
             if (GPIO_HP_EN >= 100 && GPIO_HP_EN <= 107) {
-                OutputBitMaskAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
-                Serial.printf("HP LO: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
             } else if (GPIO_HP_EN >= 108 && GPIO_HP_EN <= 115) {
-                OutputBitMaskAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
-                Serial.printf("HP HI: %u\n", OutputBitMaskAsPerPort[0]);
+                OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(GPIO_HP_EN));
             }
         #endif
-        
+
+        #ifdef POWER    // Set as output to trigger mosfet/power-pin for powering peripherals. Hint: logic is inverted if INVERT_POWER is enabled.
+            if (POWER >= 100 && POWER <= 107) {
+                #ifdef INVERT_POWER
+                    OutputBitMaskLowHighAsPerPort[0] |= (1 << Port_ChannelToBit(POWER));
+                #else
+                    OutputBitMaskInOutAsPerPort[0] &= ~(1 << Port_ChannelToBit(POWER));
+                #endif
+            } else if (POWER >= 108 && POWER <= 115) {
+                #ifdef INVERT_POWER
+                    OutputBitMaskLowHighAsPerPort[1] |= (1 << Port_ChannelToBit(POWER));
+                #else
+                    OutputBitMaskInOutAsPerPort[1] &= ~(1 << Port_ChannelToBit(POWER));
+                #endif
+            }
+        #endif
 
         // Only change port-config if necessary (at least bitmask changed from base-default for one port)
-        if ((OutputBitMaskAsPerPort[0] != portBaseValueBitMask) || (OutputBitMaskAsPerPort[1] != portBaseValueBitMask)) {
+        if ((OutputBitMaskInOutAsPerPort[0] != portBaseValueBitMask) || (OutputBitMaskInOutAsPerPort[1] != portBaseValueBitMask)) {
             i2cBusTwo.beginTransmission(expanderI2cAddress);
-            i2cBusTwo.write(0x06);
+            i2cBusTwo.write(0x06);  // Pointer to configuration of input/output
             for (uint8_t i=0; i<portsToWrite; i++) {
-                i2cBusTwo.write(OutputBitMaskAsPerPort[i]);
+                i2cBusTwo.write(OutputBitMaskInOutAsPerPort[i]);
             }
             i2cBusTwo.endTransmission();
 
+            // Write low/high-config to all output-channels. Channels that are configured as input are silently/automatically ignored by PCA9555
             i2cBusTwo.beginTransmission(expanderI2cAddress);
-            i2cBusTwo.write(0x02);  // Pointer to configuration of output-channels
-            i2cBusTwo.write(0x00);  // Set all output-channels (port0) to low as per default (channels configured as input aren't affected by this)
-            i2cBusTwo.write(0x00);  // Set all output-channels (port1) to low as per default (channels configured as input aren't affected by this)
+            i2cBusTwo.write(0x02);  // Pointer to configuration of output-channels (high/low)
+            i2cBusTwo.write(OutputBitMaskLowHighAsPerPort[0]);  // port0
+            i2cBusTwo.write(OutputBitMaskLowHighAsPerPort[1]);  // port1
             i2cBusTwo.endTransmission();
         }
     }
@@ -298,7 +305,7 @@ void Port_Write(const uint8_t _channel, const bool _newState) {
     // Reads input from port-expander and writes output into global array
     // Datasheet: https://www.nxp.com/docs/en/data-sheet/PCA9555.pdf
     void Port_ExpanderHandler(void) {
-        // If interrupt-handling is active, only ready port-expander's register if interrupt was fired
+        // If interrupt-handling is active, only read port-expander's register if interrupt was fired
         #ifdef PE_INTERRUPT_PIN_ENABLE
             if (!Port_AllowReadFromPortExpander && !Port_AllowInitReadFromPortExpander) {
                 //Serial.println("Interrupt false!");
@@ -319,6 +326,7 @@ void Port_Write(const uint8_t _channel, const bool _newState) {
 
             if (i2cBusTwo.available()) {
                 Port_ExpanderPortsInputChannelStatus[i] = i2cBusTwo.read();
+                //Serial.printf("Debug: PE-Port: %u  Status: %u\n", i, Port_ExpanderPortsInputChannelStatus[i]);
             }
         }
     }

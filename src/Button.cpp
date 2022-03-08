@@ -26,12 +26,10 @@ bool gButtonInitComplete = false;
 #elif (PAUSEPLAY_BUTTON >= 100 && PAUSEPLAY_BUTTON <= 115)
     #define EXPANDER_2_ENABLE
 #endif
-#ifdef USEROTARY_ENABLE
-    #if (ROTARYENCODER_BUTTON >= 0 && ROTARYENCODER_BUTTON <= 39)
-        #define BUTTON_3_ENABLE
-    #elif (ROTARYENCODER_BUTTON >= 100 && ROTARYENCODER_BUTTON <= 115)
-        #define EXPANDER_3_ENABLE
-    #endif
+#if (ROTARYENCODER_BUTTON >= 0 && ROTARYENCODER_BUTTON <= 39)
+    #define BUTTON_3_ENABLE
+#elif (ROTARYENCODER_BUTTON >= 100 && ROTARYENCODER_BUTTON <= 115)
+    #define EXPANDER_3_ENABLE
 #endif
 #if (BUTTON_4 >= 0 && BUTTON_4 <= 39)
     #define BUTTON_4_ENABLE
@@ -57,7 +55,7 @@ static void IRAM_ATTR onTimer();
 static void Button_DoButtonActions(void);
 
 void Button_Init() {
-    #if (WAKEUP_BUTTON <= 39)
+    #if (WAKEUP_BUTTON >= 0 && WAKEUP_BUTTON <= 39)
         esp_sleep_enable_ext0_wakeup((gpio_num_t)WAKEUP_BUTTON, 0);
     #endif
 
@@ -94,7 +92,7 @@ void Button_Init() {
         #endif
     #endif
 
-    // Activate internal pullups for all enabled buttons
+    // Activate internal pullups for all enabled buttons connected to GPIOs
     #ifdef BUTTON_0_ENABLE
         pinMode(NEXT_BUTTON, INPUT_PULLUP);
     #endif
