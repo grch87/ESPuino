@@ -33,14 +33,14 @@
     // RFID (via SPI)
     #define RST_PIN                         99          // Not necessary but has to be set anyway; so let's use a dummy-number
     #define RFID_CS                         21          // GPIO for chip select (RFID)
-    #define RFID_MOSI                       13          // GPIO for master out slave in (RFID)
-    #define RFID_MISO                       15          // GPIO for master in slave out (RFID)
-    #define RFID_SCK                        14          // GPIO for clock-signal (RFID)
+    #define RFID_MOSI                       23          // GPIO for master out slave in (RFID)
+    #define RFID_MISO                       19          // GPIO for master in slave out (RFID)
+    #define RFID_SCK                        18          // GPIO for clock-signal (RFID)
 
     #ifdef RFID_READER_TYPE_PN5180
-        #define RFID_BUSY                   33          // PN5180 BUSY PIN
+        #define RFID_BUSY                   39          // PN5180 BUSY PIN
         #define RFID_RST                    22          // PN5180 RESET PIN
-        #define RFID_IRQ                    39          // PN5180 IRQ PIN (only needed for low power card detection)
+        #define RFID_IRQ                    99          // PN5180 IRQ PIN (only needed for low power card detection)
     #endif
     // I2S (DAC)
     #define I2S_DOUT                        25          // Digital out (I2S)
@@ -50,8 +50,8 @@
     // Rotary encoder
     #ifdef USEROTARY_ENABLE
         //#define REVERSE_ROTARY                        // To reverse encoder's direction; switching CLK / DT in hardware does the same
-        #define ROTARYENCODER_CLK           34          // rotary encoder's CLK
-        #define ROTARYENCODER_DT            39          // 39 = 'VN'; Info: Lolin D32 pro is using 35 for battery-voltage-monitoring!
+        #define ROTARYENCODER_CLK           32          // rotary encoder's CLK
+        #define ROTARYENCODER_DT            34          // 39 = 'VN'; Info: Lolin D32 pro is using 35 for battery-voltage-monitoring!
     #endif
 
     // Amp enable (optional)
@@ -59,10 +59,10 @@
     //#define GPIO_HP_EN                      113         // To enable amp for headphones (GPIO or port-channel)
 
     // Control-buttons (set to 99 to DISABLE; 0->39 for GPIO; 100->115 for port-expander)
-    #define NEXT_BUTTON                     33          // Button 0: GPIO to detect next
-    #define PREVIOUS_BUTTON                  2          // Button 1: GPIO to detect previous
-    #define PAUSEPLAY_BUTTON                36          // Button 2: GPIO to detect pause/play
-    #define ROTARYENCODER_BUTTON            32          // (set to 99 to disable; 0->39 for GPIO; 100->115 for port-expander)
+    #define NEXT_BUTTON                      0          // Button 0: GPIO to detect next
+    #define PREVIOUS_BUTTON                 13          // Button 1: GPIO to detect previous
+    #define PAUSEPLAY_BUTTON                 4          // Button 2: GPIO to detect pause/play
+    #define ROTARYENCODER_BUTTON            33          // (set to 99 to disable; 0->39 for GPIO; 100->115 for port-expander)
     #define BUTTON_4                        99          // Button 4: unnamed optional button
     #define BUTTON_5                        99          // Button 5: unnamed optional button
 
@@ -109,7 +109,7 @@
 
     // (optional) For measuring battery-voltage a voltage-divider is already onboard. Connect a LiPo and use it!
     #ifdef MEASURE_BATTERY_VOLTAGE
-        constexpr uint16_t rdiv1 = 100;                           // Cannot be changed, it's built in
+        constexpr uint16_t rdiv1 = 116;                           // Cannot be changed, it's built in
         constexpr uint16_t rdiv2 = 100;                           // Cannot be changed, it's built in
     #endif
 
