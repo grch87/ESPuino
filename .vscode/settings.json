@@ -1,3 +1,6 @@
 {
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+    "gitlens.advanced.blame.customArguments": [
+	"--ignore-revs-file", ".git-blame-ignore-revs"
+    ]
 }

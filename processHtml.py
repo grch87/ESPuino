@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Use this script for creating PROGMEM header files from html files.
+Use this script for creating binary header files from html files.
 """
 
 from pathlib import Path
@@ -24,13 +24,12 @@ OUTPUT_DIR = (
 )  # pylint: disable=undefined-variable
 HTML_DIR = Path("html").absolute()
 # List of files, which will only be minifed but not compressed (f.e. html files with templates)
-WWW_FILES = [
-    Path("management.html"),
-    Path("accesspoint.html"),
-]
+WWW_FILES = []
 # list of all files, which shall be compressed before embedding
 # files with ".json" ending will be minifed before compression, ".js" will not be changed!
 BINARY_FILES =[
+    Path("management.html"),
+    Path("accesspoint.html"),
     Path("js/i18next.min.js"),
     Path("js/i18nextHttpBackend.min.js"),
     Path("js/loc_i18next.min.js"),
@@ -40,7 +39,7 @@ BINARY_FILES =[
 
 
 class HtmlHeaderProcessor:
-    """Create c code PROGMEM header files from HTML files"""
+    """Create c code binary header files from HTML files"""
 
     @staticmethod
     def _escape_html(data):
@@ -64,7 +63,7 @@ class HtmlHeaderProcessor:
 
         with header_path.open(mode="w", encoding="utf-8") as header_file:
             header_file.write(
-                f"static const char {html_path.name.split('.')[0]}_HTML[] PROGMEM = \""
+                f"static const char {html_path.name.split('.')[0]}_HTML[] = \""
             )
             header_file.write(content)
             header_file.write('";\n')
@@ -88,7 +87,7 @@ class HtmlHeaderProcessor:
         with header_path.open(mode="a", encoding="utf-8") as header_file:
             varName = binary_path.name.split('.')[0]
             header_file.write(
-                f"static const uint8_t {varName}_BIN[] PROGMEM = {{\n    "
+                f"static const uint8_t {varName}_BIN[] = {{\n    "
             )
             size = 0
             for d in data:

@@ -1,3 +1,5 @@
+// clang-format off
+
 #ifndef __ESPUINO_SETTINGS_OVERRIDE_H__
     #define __ESPUINO_SETTINGS_OVERRIDE_H__
         #include "Arduino.h"
@@ -18,7 +20,6 @@
     7: Lolin D32 pro SDMMC Port-Expander    => settings-lolin_d32_pro_sdmmc_pe.h
     8: AZDelivery ESP32 NodeMCU             => settings-azdelivery_sdmmc.h
     9: Lolin D32 SDMMC Port-Expander        => settings-lolin_d32_sdmmc_pe.h
-    10: RASPIAUDIO Muse Proto               => settings-muse_proto.h
     99: custom                              => settings-custom.h
     more to come...
     */
@@ -36,7 +37,7 @@
     #define NEOPIXEL_ENABLE                 // Don't forget configuration of NUM_LEDS if enabled
     //#define NEOPIXEL_REVERSE_ROTATION     // Some Neopixels are adressed/soldered counter-clockwise. This can be configured here.
     #define LANGUAGE DE                     // DE = deutsch; EN = english
-    //#define STATIC_IP_ENABLE              // Enables static IP-configuration (change static ip-section accordingly)
+    //#define STATIC_IP_ENABLE              // DEPRECATED: Enables static IP-configuration (change static ip-section accordingly)
     #define HEADPHONE_ADJUST_ENABLE       // Used to adjust (lower) volume for optional headphone-pcb (refer maxVolumeSpeaker / maxVolumeHeadphone) and to enable stereo (if PLAY_MONO_SPEAKER is set)
     #define PLAY_MONO_SPEAKER               // If only one speaker is used enabling mono should make sense. Please note: headphones is always stereo (if HEADPHONE_ADJUST_ENABLE is active)
     #define SHUTDOWN_IF_SD_BOOT_FAILS       // Will put ESP to deepsleep if boot fails due to SD. Really recommend this if there's in battery-mode no other way to restart ESP! Interval adjustable via deepsleepTimeAfterBootFails.
@@ -48,7 +49,6 @@
     #define USEROTARY_ENABLE                // If rotary-encoder is used (don't forget to review WAKEUP_BUTTON if you disable this feature!)
     #define BLUETOOTH_ENABLE                // If enabled and bluetooth-mode is active, you can stream to your ESPuino via bluetooth (a2dp-sink).
     //#define IR_CONTROL_ENABLE             // Enables remote control (https://forum.espuino.de/t/neues-feature-fernsteuerung-per-infrarot-fernbedienung/265)
-    #define CACHED_PLAYLIST_ENABLE          // Enables playlist-caching (infos: https://forum.espuino.de/t/neues-feature-cached-playlist/515)
     //#define PAUSE_WHEN_RFID_REMOVED       // Playback starts when card is applied and pauses automatically, when card is removed (https://forum.espuino.de/t/neues-feature-pausieren-wenn-rfid-karte-entfernt-wurde/541)
     //#define DONT_ACCEPT_SAME_RFID_TWICE   // RFID-reader doesn't accept the same RFID-tag twice in a row (unless it's a modification-card or RFID-tag is unknown in NVS). Flag will be ignored silently if PAUSE_WHEN_RFID_REMOVED is active. (https://forum.espuino.de/t/neues-feature-dont-accept-same-rfid-twice/1247)
     //#define SAVE_PLAYPOS_BEFORE_SHUTDOWN  // When playback is active and mode audiobook was selected, last play-position is saved automatically when shutdown is initiated
@@ -146,6 +146,8 @@
     // Serial-logging-configuration
     #define SERIAL_LOGLEVEL LOGLEVEL_DEBUG              // Current loglevel for serial console
 
+    // DEPRECATED: This is now done using dynamic network configuration.
+    //              If left, it is used for the automatic migration exactly once
     // Static ip-configuration
     #ifdef STATIC_IP_ENABLE
         #define LOCAL_IP   192,168,2,100                // ESPuino's IP
@@ -171,15 +173,13 @@
     // Default user/password is esp32/esp32 but can be changed via webgui
 
     // ESPuino will create a WiFi if joing existing WiFi was not possible. Name can be configured here.
-    constexpr const char accessPointNetworkSSID[] PROGMEM = "ESPuino";     // Access-point's SSID
+    constexpr const char accessPointNetworkSSID[] = "ESPuino";     // Access-point's SSID
 
     // Bluetooth
-    constexpr const char nameBluetoothSinkDevice[] PROGMEM = "ESPuino";        // Name of your ESPuino as Bluetooth-device
-    constexpr const char nameBluetoothSourceDevice[] PROGMEM = "My POGS Wireless Headphone"; // Name of Bluetooth-device to connect to (BT-Headset name) (https://forum.espuino.de/t/neues-feature-bluetooth-kopfhoerer/1293/)
+    constexpr const char nameBluetoothSinkDevice[] = "ESPuino";        // Name of your ESPuino as Bluetooth-device
 
     // Where to store the backup-file for NVS-records
-    constexpr const char backupFile[] PROGMEM = "/backup.txt"; // File is written every time a (new) RFID-assignment via GUI is done
-    constexpr const char playlistCacheFile[] PROGMEM = "playlistcache.csv"; // Filename that is used for caching playlists
+    constexpr const char backupFile[] = "/backup.txt"; // File is written every time a (new) RFID-assignment via GUI is done
 
     //#################### Settings for optional Modules##############################
     // (optinal) Neopixel
@@ -232,31 +232,31 @@
         constexpr uint16_t mqttRetryInterval = 60;                // Try to reconnect to MQTT-server every (n) seconds if connection is broken
         constexpr uint8_t mqttMaxRetriesPerInterval = 1;          // Number of retries per time-interval (mqttRetryInterval). mqttRetryInterval 60 / mqttMaxRetriesPerInterval 1 => once every 60s
         #define DEVICE_HOSTNAME "ESP32-ESPuino"         // Name that is used for MQTT
-        constexpr const char topicSleepCmnd[] PROGMEM = "Cmnd/ESPuino/Sleep";
-        constexpr const char topicSleepState[] PROGMEM = "State/ESPuino/Sleep";
-        constexpr const char topicRfidCmnd[] PROGMEM = "Cmnd/ESPuino/Rfid";
-        constexpr const char topicRfidState[] PROGMEM = "State/ESPuino/Rfid";
-        constexpr const char topicTrackState[] PROGMEM = "State/ESPuino/Track";
-        constexpr const char topicTrackControlCmnd[] PROGMEM = "Cmnd/ESPuino/TrackControl";
-        constexpr const char topicCoverChangedState[] PROGMEM = "State/ESPuino/CoverChanged";
-        constexpr const char topicLoudnessCmnd[] PROGMEM = "Cmnd/ESPuino/Loudness";
-        constexpr const char topicLoudnessState[] PROGMEM = "State/ESPuino/Loudness";
-        constexpr const char topicSleepTimerCmnd[] PROGMEM = "Cmnd/ESPuino/SleepTimer";
-        constexpr const char topicSleepTimerState[] PROGMEM = "State/ESPuino/SleepTimer";
-        constexpr const char topicState[] PROGMEM = "State/ESPuino/State";
-        constexpr const char topicCurrentIPv4IP[] PROGMEM = "State/ESPuino/IPv4";
-        constexpr const char topicLockControlsCmnd[] PROGMEM ="Cmnd/ESPuino/LockControls";
-        constexpr const char topicLockControlsState[] PROGMEM ="State/ESPuino/LockControls";
-        constexpr const char topicPlaymodeState[] PROGMEM = "State/ESPuino/Playmode";
-        constexpr const char topicRepeatModeCmnd[] PROGMEM = "Cmnd/ESPuino/RepeatMode";
-        constexpr const char topicRepeatModeState[] PROGMEM = "State/ESPuino/RepeatMode";
-        constexpr const char topicLedBrightnessCmnd[] PROGMEM = "Cmnd/ESPuino/LedBrightness";
-        constexpr const char topicLedBrightnessState[] PROGMEM = "State/ESPuino/LedBrightness";
-        constexpr const char topicWiFiRssiState[] PROGMEM = "State/ESPuino/WifiRssi";
-        constexpr const char topicSRevisionState[] PROGMEM = "State/ESPuino/SoftwareRevision";
+        constexpr const char topicSleepCmnd[] = "Cmnd/ESPuino/Sleep";
+        constexpr const char topicSleepState[] = "State/ESPuino/Sleep";
+        constexpr const char topicRfidCmnd[] = "Cmnd/ESPuino/Rfid";
+        constexpr const char topicRfidState[] = "State/ESPuino/Rfid";
+        constexpr const char topicTrackState[] = "State/ESPuino/Track";
+        constexpr const char topicTrackControlCmnd[] = "Cmnd/ESPuino/TrackControl";
+        constexpr const char topicCoverChangedState[] = "State/ESPuino/CoverChanged";
+        constexpr const char topicLoudnessCmnd[] = "Cmnd/ESPuino/Loudness";
+        constexpr const char topicLoudnessState[] = "State/ESPuino/Loudness";
+        constexpr const char topicSleepTimerCmnd[] = "Cmnd/ESPuino/SleepTimer";
+        constexpr const char topicSleepTimerState[] = "State/ESPuino/SleepTimer";
+        constexpr const char topicState[] = "State/ESPuino/State";
+        constexpr const char topicCurrentIPv4IP[] = "State/ESPuino/IPv4";
+        constexpr const char topicLockControlsCmnd[] ="Cmnd/ESPuino/LockControls";
+        constexpr const char topicLockControlsState[] ="State/ESPuino/LockControls";
+        constexpr const char topicPlaymodeState[] = "State/ESPuino/Playmode";
+        constexpr const char topicRepeatModeCmnd[] = "Cmnd/ESPuino/RepeatMode";
+        constexpr const char topicRepeatModeState[] = "State/ESPuino/RepeatMode";
+        constexpr const char topicLedBrightnessCmnd[] = "Cmnd/ESPuino/LedBrightness";
+        constexpr const char topicLedBrightnessState[] = "State/ESPuino/LedBrightness";
+        constexpr const char topicWiFiRssiState[] = "State/ESPuino/WifiRssi";
+        constexpr const char topicSRevisionState[] = "State/ESPuino/SoftwareRevision";
         #ifdef BATTERY_MEASURE_ENABLE
-            constexpr const char topicBatteryVoltage[] PROGMEM = "State/ESPuino/Voltage";
-            constexpr const char topicBatterySOC[] PROGMEM     = "State/ESPuino/Battery";
+            constexpr const char topicBatteryVoltage[] = "State/ESPuino/Voltage";
+            constexpr const char topicBatterySOC[]     = "State/ESPuino/Battery";
         #endif
     #endif
 
@@ -279,8 +279,6 @@
         #include "settings-azdelivery_sdmmc.h"              // Pre-configured settings for AZ Delivery ESP32 NodeMCU / Devkit C (https://forum.espuino.de/t/az-delivery-esp32-nodemcu-devkit-c-mit-sd-mmc-und-pn5180-als-rfid-leser/634)
     #elif (HAL == 9)
         #include "settings-lolin_d32_sdmmc_pe.h"            // Pre-configured settings for Lolin D32 (non-pro) with SDMMC + port-expander (https://forum.espuino.de/t/espuino-minid32-pro-lolin-d32-pro-mit-sd-mmc-und-port-expander-smd/866)
-    #elif (HAL == 10)
-        #include "settings-muse_proto.h"                     // Pre-configured settings for Raspiaudio ESPMuse Proto Board with I2C RFID Reader (https://raspiaudio.com/produit/muse-proto)
     #elif (HAL == 99)
         #include "settings-custom.h"                        // Contains all user-relevant settings custom-board
     #endif
