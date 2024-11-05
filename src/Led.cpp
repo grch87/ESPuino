@@ -8,6 +8,7 @@
 #include "Bluetooth.h"
 #include "Button.h"
 #include "Log.h"
+#include "Mqtt.h"
 #include "Port.h"
 #include "System.h"
 #include "Wlan.h"
@@ -45,6 +46,9 @@ static bool Led_Pause = false; // Used to pause Neopixel-signalisation (while NV
 static uint8_t Led_InitialBrightness = LED_INITIAL_BRIGHTNESS;
 static uint8_t Led_Brightness = LED_INITIAL_BRIGHTNESS;
 static uint8_t Led_NightBrightness = LED_INITIAL_NIGHT_BRIGHTNESS;
+static bool Led_NightMode = false;
+static uint8_t Led_savedBrightness;
+
 constexpr uint8_t Led_IdleDotDistance = NUM_INDICATOR_LEDS / NUM_LEDS_IDLE_DOTS;
 
 static CRGBArray<NUM_INDICATOR_LEDS + NUM_CONTROL_LEDS> leds;
@@ -170,6 +174,45 @@ void Led_SetBrightness(uint8_t value) {
 	#ifdef BUTTONS_LED
 	Port_Write(BUTTONS_LED, value <= Led_NightBrightness ? LOW : HIGH, false);
 	#endif
+
+	#ifdef MQTT_ENABLE
+	publishMqtt(topicLedBrightnessState, Led_Brightness, false);
+	#endif
+#endif
+}
+
+void Led_SetNightmode(bool enabled) {
+#ifdef NEOPIXEL_ENABLE
+	if (Led_NightMode == enabled) {
+		// we don't need to do anything
+		return;
+	}
+
+	const char *msg = ledsBrightnessRestored;
+	uint8_t newValue = Led_savedBrightness;
+	if (enabled) {
+		// we are switching to night mode
+		Led_savedBrightness = Led_Brightness;
+		msg = ledsDimmedToNightmode;
+		newValue = Led_NightBrightness;
+	}
+	Led_NightMode = enabled;
+	Led_SetBrightness(newValue);
+	Log_Println(msg, LOGLEVEL_INFO);
+#endif
+}
+
+bool Led_GetNightmode() {
+#ifdef NEOPIXEL_ENABLE
+	return Led_NightMode;
+#else
+	return false;
+#endif
+}
+
+void Led_ToggleNightmode() {
+#ifdef NEOPIXEL_ENABLE
+	Led_SetNightmode(!Led_NightMode);
 #endif
 }
 
@@ -305,10 +348,10 @@ static void Led_Task(void *parameter) {
 			nextAnimation = LedAnimationType::Idle;
 		} else if (gPlayProperties.pausePlay && !gPlayProperties.isWebstream) {
 			nextAnimation = LedAnimationType::Pause;
-		} else if (gPlayProperties.isWebstream) { // also animate pause in the webstream animation
-			nextAnimation = LedAnimationType::Webstream;
-		} else if ((gPlayProperties.playMode != BUSY) && (gPlayProperties.playMode != NO_PLAYLIST)) {
+		} else if ((gPlayProperties.playMode != BUSY) && (gPlayProperties.playMode != NO_PLAYLIST) && gPlayProperties.audioFileSize > 0) { // progress for a file/stream with known size
 			nextAnimation = LedAnimationType::Progress;
+		} else if (gPlayProperties.isWebstream) { // webstream animation (for streams with unknown size); pause animation is also handled by the webstream animation function
+			nextAnimation = LedAnimationType::Webstream;
 		} else if (gPlayProperties.playMode == NO_PLAYLIST) {
 			nextAnimation = LedAnimationType::Idle;
 		} else if (gPlayProperties.playMode == BUSY) {
@@ -743,7 +786,12 @@ AnimationReturnType Animation_Idle(const bool startNewAnimation, CRGBSet &leds) 
 		CRGB::HTMLColorCode idleColor = Led_GetIdleColor();
 		leds = CRGB::Black;
 		Led_DrawIdleDots(leds, ledIndex, idleColor);
-		animationDelay = 50 * 10;
+		if (OPMODE_BLUETOOTH_SOURCE == System_GetOperationMode()) {
+			// animate a bit faster in BT-Source to distinguish between the bluetooth modes
+			animationDelay = 30 * 10;
+		} else {
+			animationDelay = 50 * 10;
+		}
 		ledIndex++;
 	} else {
 		animationActive = false;
@@ -929,16 +977,17 @@ AnimationReturnType Animation_PlaylistProgress(const bool startNewAnimation, CRG
 	static bool animationActive = false; // signals if the animation is currently active
 	int32_t animationDelay = 0;
 	// static variables for animation
-	static LedPlaylistProgressStates animationState = LedPlaylistProgressStates::Done; // Statemachine-variable of this animation
 	static uint32_t animationCounter = 0; // counter-variable to loop through leds or to wait
 	static uint32_t staticLastBarLenghtPlaylist = 0; // variable to remember the last length of the progress-bar (for connecting animations)
 	static uint32_t staticLastTrack = 0; // variable to remember the last track (for connecting animations)
 
 	if constexpr (NUM_INDICATOR_LEDS >= 4) {
-		if (gPlayProperties.numberOfTracks > 1 && gPlayProperties.currentTrackNumber < gPlayProperties.numberOfTracks) {
-			const uint32_t ledValue = std::clamp<uint32_t>(map(gPlayProperties.currentTrackNumber, 0, gPlayProperties.numberOfTracks - 1, 0, leds.size() * DIMMABLE_STATES), 0, leds.size() * DIMMABLE_STATES);
+		const uint16_t currentTrack = (gPlayProperties.playlist) ? gPlayProperties.playlist->size() : 0;
+		if (currentTrack > 1 && gPlayProperties.currentTrackNumber < currentTrack) {
+			const uint32_t ledValue = std::clamp<uint32_t>(map(gPlayProperties.currentTrackNumber, 0, currentTrack - 1, 0, leds.size() * DIMMABLE_STATES), 0, leds.size() * DIMMABLE_STATES);
 			const uint8_t fullLeds = ledValue / DIMMABLE_STATES;
 			const uint8_t lastLed = ledValue % DIMMABLE_STATES;
+			static LedPlaylistProgressStates animationState = LedPlaylistProgressStates::Done; // Statemachine-variable of this animation
 
 			if (LED_INDICATOR_IS_SET(LedIndicatorType::PlaylistProgress)) {
 				LED_INDICATOR_CLEAR(LedIndicatorType::PlaylistProgress);
@@ -1052,7 +1101,7 @@ AnimationReturnType Animation_BatteryMeasurement(const bool startNewAnimation, C
 	LED_INDICATOR_CLEAR(LedIndicatorType::Voltage);
 
 	if (startNewAnimation) {
-	#ifdef MEASURE_BATTERY_VOLTAGE
+	#ifdef BATTERY_MEASURE_ENABLE
 		float batteryLevel = Battery_EstimateLevel();
 	#else
 		float batteryLevel = 1.0f;
@@ -1084,9 +1133,9 @@ AnimationReturnType Animation_BatteryMeasurement(const bool startNewAnimation, C
 
 		// fill all needed LEDs
 		if (filledLedCount < numLedsToLight) {
-			if (staticBatteryLevel < 0.3) {
+			if (staticBatteryLevel < 0.3f) {
 				leds[Led_Address(filledLedCount)] = CRGB::Red;
-			} else if (staticBatteryLevel < 0.6) {
+			} else if (staticBatteryLevel < 0.6f) {
 				leds[Led_Address(filledLedCount)] = CRGB::Orange;
 			} else {
 				leds[Led_Address(filledLedCount)] = CRGB::Green;

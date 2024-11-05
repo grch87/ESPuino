@@ -22,9 +22,9 @@
 #define SINGLE_TRACK_OF_DIR_RANDOM								  12 // Play a single track of a directory and fall asleep subsequently
 #define AUDIOBOOK												  3 // Single track, can save last play-position
 #define AUDIOBOOK_LOOP											  4 // Single track as infinite-loop, can save last play-position
-#define ALL_TRACKS_OF_DIR_SORTED								  5 // Play all files of a directory (alph. sorted)
+#define ALL_TRACKS_OF_DIR_SORTED								  5 // Play all files of a directory (sorted)
 #define ALL_TRACKS_OF_DIR_RANDOM								  6 // Play all files of a directory (randomized)
-#define ALL_TRACKS_OF_DIR_SORTED_LOOP							  7 // Play all files of a directory (alph. sorted) in infinite-loop
+#define ALL_TRACKS_OF_DIR_SORTED_LOOP							  7 // Play all files of a directory (sorted) in infinite-loop
 #define ALL_TRACKS_OF_DIR_RANDOM_LOOP							  9 // Play all files of a directory (randomized) in infinite-loop
 #define RANDOM_SUBDIRECTORY_OF_DIRECTORY						  13 // Picks a random subdirectory from a given directory and do ALL_TRACKS_OF_DIR_SORTED
 #define RANDOM_SUBDIRECTORY_OF_DIRECTORY_ALL_TRACKS_OF_DIR_RANDOM 14 // Picks a random subdirectory from a given directory and do ALL_TRACKS_OF_DIR_RANDOM
@@ -48,6 +48,7 @@
 #define CMD_TOGGLE_WIFI_STATUS			 130 // Toggles WiFi-status
 #define CMD_TOGGLE_BLUETOOTH_SINK_MODE	 140 // Toggles Normal/Bluetooth sink Mode
 #define CMD_TOGGLE_BLUETOOTH_SOURCE_MODE 141 // Toggles Normal/Bluetooth source Mode
+#define CMD_TOGGLE_MODE					 142 // Toggles Normal => Bluetooth sink => Bluetooth source => Normal Mode
 #define CMD_ENABLE_FTP_SERVER			 150 // Enables FTP-server
 #define CMD_TELL_IP_ADDRESS				 151 // Command: ESPuino announces its IP-address via speech
 #define CMD_TELL_CURRENT_TIME			 152 // Command: ESPuino announces current time via speech
@@ -67,6 +68,17 @@
 #define CMD_STOP		   182 // Command: stops playback
 #define CMD_RESTARTSYSTEM  183 // Command: restart System
 
+#define CMD_VIRTUAL_RFID_CARD_01 241 // Command: Virtual RFID-Card 900000000001
+#define CMD_VIRTUAL_RFID_CARD_02 242 // Command: Virtual RFID-Card 900000000002
+#define CMD_VIRTUAL_RFID_CARD_03 243 // Command: Virtual RFID-Card 900000000003
+#define CMD_VIRTUAL_RFID_CARD_04 244 // Command: Virtual RFID-Card 900000000004
+#define CMD_VIRTUAL_RFID_CARD_05 245 // Command: Virtual RFID-Card 900000000005
+#define CMD_VIRTUAL_RFID_CARD_06 246 // Command: Virtual RFID-Card 900000000006
+#define CMD_VIRTUAL_RFID_CARD_07 247 // Command: Virtual RFID-Card 900000000007
+#define CMD_VIRTUAL_RFID_CARD_08 248 // Command: Virtual RFID-Card 900000000008
+#define CMD_VIRTUAL_RFID_CARD_09 249 // Command: Virtual RFID-Card 900000000009
+#define CMD_VIRTUAL_RFID_CARD_10 250 // Command: Virtual RFID-Card 900000000010
+
 // Repeat-Modes
 #define NO_REPEAT		 0 // No repeat
 #define TRACK			 1 // Repeat current track (infinite loop)
@@ -74,9 +86,10 @@
 #define TRACK_N_PLAYLIST 3 // Repeat both (infinite loop)
 
 // Seek-modes
-#define SEEK_NORMAL	   0 // Normal play
-#define SEEK_FORWARDS  1 // Seek forwards
-#define SEEK_BACKWARDS 2 // Seek backwards
+#define SEEK_NORMAL		 0 // Normal play
+#define SEEK_FORWARDS	 1 // Seek forwards
+#define SEEK_BACKWARDS	 2 // Seek backwards
+#define SEEK_POS_PERCENT 3 // Seek to position (0-100)
 
 // TTS
 #define TTS_NONE		 0 // Do nothng (IDLE)
@@ -86,6 +99,19 @@
 // supported languages
 #define DE 1
 #define EN 2
+#define FR 3
+
+// Virtual RFID Cards
+#define VIRTUAL_RFID_CARD_01 "900000000001"
+#define VIRTUAL_RFID_CARD_02 "900000000002"
+#define VIRTUAL_RFID_CARD_03 "900000000003"
+#define VIRTUAL_RFID_CARD_04 "900000000004"
+#define VIRTUAL_RFID_CARD_05 "900000000005"
+#define VIRTUAL_RFID_CARD_06 "900000000006"
+#define VIRTUAL_RFID_CARD_07 "900000000007"
+#define VIRTUAL_RFID_CARD_08 "900000000008"
+#define VIRTUAL_RFID_CARD_09 "900000000009"
+#define VIRTUAL_RFID_CARD_10 "900000000010"
 
 // Debug
-#define PRINT_TASK_STATS 900 // Prints task stats for debugging, needs CONFIG_FREERTOS_USE_TRACE_FACILITY=y and CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y in sdkconfig.defaults
+#define PRINT_TASK_STATS 199 // Prints task stats for debugging, needs CONFIG_FREERTOS_USE_TRACE_FACILITY=y and CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y in sdkconfig.defaults
